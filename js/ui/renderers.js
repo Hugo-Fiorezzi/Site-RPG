@@ -401,7 +401,7 @@ export function renderCombatBar(combatState, charactersMap, viewMode, campaignSt
                 ${canControlThisChar ? `<button onclick="app.resetCharacterTurnActions('${char.id}')" class="text-brass-300 hover:underline">Restaurar</button>` : ''}
               </div>
               <div class="grid grid-cols-4 gap-1">
-                ${ACTION_TYPES.filter(a => a.key !== 'livre').map(a => {
+                ${ACTION_TYPES.filter(a => a.key !== 'livre' && a.key !== 'completa').map(a => {
                   const available = actions[a.key] !== false;
                   return `
                     <button onclick="${canControlThisChar ? `app.toggleCharacterTurnAction('${char.id}', '${a.key}')` : ''}"
@@ -1275,6 +1275,7 @@ export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alph
 
   setInputValueIfNotFocused('charActingNotes', char.actingNotes || '');
   setInputValueIfNotFocused('charAnchors', char.anchors || '');
+  setInputValueIfNotFocused('charBackgroundStory', char.backgroundStory || '');
   setInputValueIfNotFocused('charBackstory', char.backstory || '');
 
   const downtimeBadge = document.getElementById('downtimePendingBadge');
@@ -1777,7 +1778,12 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
   const turnActions = char.turnActions || DEFAULT_TURN_ACTIONS;
 
   slotsContainer.innerHTML = ACTION_TYPES.filter(a => a.key !== 'livre').map(a => {
-    const isAvailable = turnActions[a.key] !== false;
+    const isAvailable = a.key === 'completa'
+      ? (turnActions.padrao !== false && turnActions.bonus !== false)
+      : (turnActions[a.key] !== false);
+    const subLabel = a.key === 'completa'
+      ? (isAvailable ? 'Gasta Padrão + Bônus' : 'Indisponível')
+      : (isAvailable ? 'Disponível' : 'Já Utilizada');
     return `
       <button onclick="app.toggleCharacterTurnAction('${char.id}', '${a.key}')"
         class="p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${isAvailable ? a.badgeClass + ' shadow-md' : 'bg-obsidian-950/70 border-slate-800 text-slate-500 opacity-60'}">
@@ -1785,7 +1791,7 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
           <i class="fa-solid ${a.icon} text-sm"></i>
           <div>
             <div class="font-display font-bold text-xs">${a.short}</div>
-            <div class="text-[10px] opacity-80">${isAvailable ? 'Disponível' : 'Já Utilizada'}</div>
+            <div class="text-[10px] opacity-80">${subLabel}</div>
           </div>
         </div>
         <span class="w-2.5 h-2.5 rounded-full ${isAvailable ? 'bg-emerald-400' : 'bg-slate-700'}"></span>
@@ -2092,60 +2098,75 @@ export function renderMysticList(char, collectionKey, forceRebuild = false) {
 
   container.innerHTML = list.map((item, idx) => {
     const actionKey = item.actionType || 'padrao';
+    const isActivePassive = (char.activePassives || []).some(
+      ap => (ap.name || '').toLowerCase() === (item.name || '').toLowerCase()
+    );
+
     return `
-      <div class="bg-obsidian-950/85 border ${isPowers ? 'border-eldritch-500/30' : 'border-astral-500/30'} rounded-xl p-4 space-y-2.5">
-        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-          <div class="sm:col-span-4">
-            <label class="block text-[10px] uppercase ${isPowers ? 'text-eldritch-300' : 'text-astral-300'}">${isPowers ? 'Nome do Poder Beyonder' : 'Nome da Magia / Ritual'}</label>
+      <div class="bg-obsidian-950/85 border ${isPowers ? 'border-eldritch-500/30' : 'border-astral-500/30'} rounded-xl p-4 space-y-3">
+        <!-- Linha 1: Campos de Edição com bastante espaço -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+          <div class="sm:col-span-5">
+            <label class="block text-[10px] uppercase ${isPowers ? 'text-eldritch-300' : 'text-astral-300'} mb-0.5">${isPowers ? 'Nome do Poder Beyonder' : 'Nome da Magia / Ritual'}</label>
             <input type="text" value="${escapeHtml(item.name || '')}" oninput="app.updateCollectionItem('${collectionKey}', ${idx}, 'name', this.value)"
-              class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold ${isPowers ? 'text-eldritch-200' : 'text-astral-200'}" />
+              class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs font-bold ${isPowers ? 'text-eldritch-200' : 'text-astral-200'}" />
           </div>
 
           <div class="sm:col-span-3">
-            <label class="block text-[10px] uppercase text-brass-300">Tipo de Ação</label>
+            <label class="block text-[10px] uppercase text-brass-300 mb-0.5">Tipo de Ação</label>
             <select onchange="app.updateCollectionItem('${collectionKey}', ${idx}, 'actionType', this.value, true)"
-              class="sheet-input w-full px-2 py-1.5 rounded text-xs font-semibold text-amber-200">
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-200">
               ${ACTION_TYPES.map(a => `<option value="${a.key}" ${actionKey === a.key ? 'selected' : ''}>${a.label}</option>`).join('')}
             </select>
           </div>
 
           <div class="sm:col-span-2">
-            <label class="block text-[10px] uppercase text-slate-400">${isPowers ? 'Sequência' : 'Tipo / Nível'}</label>
+            <label class="block text-[10px] uppercase text-slate-400 mb-0.5">${isPowers ? 'Sequência' : 'Tipo / Nível'}</label>
             <input type="text" value="${escapeHtml((isPowers ? item.sequence : item.level) || '')}"
               oninput="app.updateCollectionItem('${collectionKey}', ${idx}, '${isPowers ? 'sequence' : 'level'}', this.value)"
-              class="sheet-input w-full px-2 py-1.5 rounded text-xs text-brass-200" />
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-brass-200" />
           </div>
 
-          <div class="sm:col-span-1">
-            <label class="block text-[10px] uppercase text-astral-300">PE</label>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] uppercase text-astral-300 mb-0.5">Custo (PE)</label>
             <input type="number" value="${item.cost ?? 0}" oninput="app.updateCollectionItem('${collectionKey}', ${idx}, 'cost', Number(this.value))"
-              class="sheet-input w-full px-1.5 py-1.5 rounded text-xs text-center font-bold text-astral-300" />
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center font-bold text-astral-300" />
           </div>
+        </div>
 
-          <div class="sm:col-span-2 flex items-end justify-end gap-1 pt-3">
-            <div class="flex flex-col gap-0.5 mr-0.5">
+        <!-- Linha 2: Barra de Controles Separada (Reordenar, Manter Passiva Ativa na Mesa, Usar/Conjurar e Excluir) -->
+        <div class="flex flex-wrap items-center justify-between gap-2.5 bg-obsidian-900/75 px-3 py-2 rounded-lg border border-slate-800/90">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] uppercase text-slate-400 mr-1">Ordem:</span>
               <button onclick="app.moveCollectionItem('${collectionKey}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}
-                title="Subir posição na ordem"
-                class="px-1.5 py-0.5 rounded bg-obsidian-900 hover:bg-brass-500/30 text-slate-400 hover:text-brass-200 border border-slate-800 text-[9px] disabled:opacity-25">
+                title="Mover para cima"
+                class="px-2 py-1 rounded bg-obsidian-950 hover:bg-brass-500/25 text-slate-300 hover:text-brass-200 border border-slate-700 text-xs disabled:opacity-30 transition-all">
                 <i class="fa-solid fa-arrow-up"></i>
               </button>
               <button onclick="app.moveCollectionItem('${collectionKey}', ${idx}, 1)" ${idx === list.length - 1 ? 'disabled' : ''}
-                title="Descer posição na ordem"
-                class="px-1.5 py-0.5 rounded bg-obsidian-900 hover:bg-brass-500/30 text-slate-400 hover:text-brass-200 border border-slate-800 text-[9px] disabled:opacity-25">
+                title="Mover para baixo"
+                class="px-2 py-1 rounded bg-obsidian-950 hover:bg-brass-500/25 text-slate-300 hover:text-brass-200 border border-slate-700 text-xs disabled:opacity-30 transition-all">
                 <i class="fa-solid fa-arrow-down"></i>
               </button>
             </div>
-            <button onclick="app.useMysticResource('${collectionKey}', ${idx}, true)"
-              class="flex-1 py-1.5 px-2 rounded-lg ${isPowers ? 'bg-eldritch-600/40 hover:bg-eldritch-500 text-eldritch-200 border-eldritch-400/40' : 'bg-astral-600/40 hover:bg-astral-500 text-astral-200 border-astral-400/40'} hover:text-white border text-xs font-bold flex items-center justify-center gap-1 transition-all">
-              <i class="fa-solid ${isPowers ? 'fa-bolt' : 'fa-wand-sparkles'}"></i> ${isPowers ? 'Usar' : 'Conjurar'}
+
+            <button onclick="app.toggleMysticAsActivePassive('${collectionKey}', ${idx})"
+              title="Exibir ou ocultar este poder/magia na aba Passivas Ativas do Oráculo da Mesa"
+              class="px-3 py-1 rounded-lg border text-xs font-display font-bold flex items-center gap-1.5 transition-all ${isActivePassive ? 'bg-emerald-500 text-obsidian-950 border-emerald-300 shadow' : 'bg-obsidian-950 hover:bg-eldritch-950 text-eldritch-300 border-slate-700'}">
+              <i class="fa-solid fa-eye"></i>
+              <span>${isActivePassive ? 'Ativo na Mesa (Desativar)' : 'Manter Ativo na Mesa'}</span>
             </button>
-            ${isPowers ? `
-              <button onclick="app.togglePowerAsActivePassive(${idx})" title="Ativar/Desativar nas Passivas Ativas do Oráculo"
-                class="p-1.5 rounded-lg border text-xs transition-all ${(char.activePassives || []).some(ap => ap.name === item.name) ? 'bg-emerald-500 text-obsidian-950 border-emerald-300 font-bold' : 'bg-obsidian-900 hover:bg-eldritch-950 text-eldritch-300 border-slate-800'}">
-                <i class="fa-solid fa-eye"></i>
-              </button>
-            ` : ''}
-            <button onclick="app.removeCollectionItem('${collectionKey}', ${idx})" class="p-1.5 rounded-lg bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="app.useMysticResource('${collectionKey}', ${idx}, true)"
+              class="px-3.5 py-1.5 rounded-lg ${isPowers ? 'bg-eldritch-600/40 hover:bg-eldritch-500 text-eldritch-200 border-eldritch-400/40' : 'bg-astral-600/40 hover:bg-astral-500 text-astral-200 border-astral-400/40'} hover:text-white border font-display text-xs font-bold flex items-center gap-1.5 transition-all">
+              <i class="fa-solid ${isPowers ? 'fa-bolt' : 'fa-wand-sparkles'}"></i>
+              <span>${isPowers ? 'Usar Poder' : 'Conjurar'} (-${item.cost ?? 0} PE)</span>
+            </button>
+            <button onclick="app.removeCollectionItem('${collectionKey}', ${idx})" title="Excluir"
+              class="p-1.5 rounded-lg bg-obsidian-950 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>
@@ -2153,7 +2174,7 @@ export function renderMysticList(char, collectionKey, forceRebuild = false) {
 
         <textarea rows="2" oninput="app.updateCollectionItem('${collectionKey}', ${idx}, 'description', this.value)"
           placeholder="Descrição detalhada, alcance e efeitos..."
-          class="sheet-input w-full p-2.5 rounded text-xs text-slate-200 leading-relaxed">${escapeHtml(item.description || '')}</textarea>
+          class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-200 leading-relaxed">${escapeHtml(item.description || '')}</textarea>
       </div>
     `;
   }).join('');
@@ -3246,51 +3267,42 @@ export function renderEquippedItemsTab(char, charactersMap, campaignState, curre
 export function renderOraclePassivesSection(char, charactersMap, campaignState, currentUser, activeOracleTab = 'rolls', forceRebuild = false) {
   const btnRolls = document.getElementById('oracleTabBtn-rolls');
   const btnPassives = document.getElementById('oracleTabBtn-passives');
-  const btnEquipped = document.getElementById('oracleTabBtn-equipped');
   const panelRolls = document.getElementById('oracleRollsPanel');
   const panelPassives = document.getElementById('oraclePassivesPanel');
-  const panelEquipped = document.getElementById('oracleEquippedPanel');
   const badge = document.getElementById('activePassivesCountBadge');
   const miniBar = document.getElementById('oracleActivePassivesMiniBar');
 
-  // Garante que cada jogador só possa ativar/desativar passivas da sua própria ficha ativa!
-  const isGMUser = currentUser?.role === 'gm';
-  const canControlActiveChar = Boolean(
-    char && (
-      isGMUser ||
-      (currentUser && char.ownerUid && char.ownerUid === currentUser.uid) ||
-      (currentUser && char.ownerEmail && currentUser.email && char.ownerEmail.toLowerCase() === currentUser.email.toLowerCase())
-    )
-  );
+  const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
+  const campCharIds = new Set(activeCamp?.characterIds || []);
+  const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const tableChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
 
-  const activePassives = Array.isArray(char?.activePassives) ? char.activePassives : [];
+  // Conta todos os poderes/habilidades e magias ativos na mesa
+  const charsWithActivePassives = tableChars.filter(c => Array.isArray(c.activePassives) && c.activePassives.length > 0);
+  const totalTableActiveCount = charsWithActivePassives.reduce((acc, c) => acc + (c.activePassives?.length || 0), 0);
+
   if (badge) {
-    badge.textContent = String(activePassives.length);
-    badge.className = activePassives.length > 0
-      ? 'px-1 py-0.2 rounded-full bg-emerald-400 text-obsidian-950 text-[9px] font-extrabold animate-pulse'
-      : 'px-1 py-0.2 rounded-full bg-obsidian-800 text-slate-400 text-[9px] font-bold';
+    badge.textContent = String(totalTableActiveCount);
+    badge.className = totalTableActiveCount > 0
+      ? 'px-1.5 py-0.2 rounded-full bg-emerald-400 text-obsidian-950 text-[9px] font-extrabold animate-pulse'
+      : 'px-1.5 py-0.2 rounded-full bg-obsidian-800 text-slate-400 text-[9px] font-bold';
   }
 
-  const activeBtnClass = 'py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 bg-brass-400 text-obsidian-950 shadow';
-  const inactiveBtnClass = 'py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200';
+  const activeBtnClass = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow';
+  const inactiveBtnClass = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200';
 
   if (btnRolls && btnPassives && panelRolls && panelPassives) {
-    btnRolls.className = activeOracleTab === 'rolls' ? activeBtnClass : inactiveBtnClass;
+    btnRolls.className = activeOracleTab === 'passives' ? inactiveBtnClass : activeBtnClass;
     btnPassives.className = activeOracleTab === 'passives' ? activeBtnClass : inactiveBtnClass;
-    if (btnEquipped) {
-      btnEquipped.className = activeOracleTab === 'equipped' ? activeBtnClass : inactiveBtnClass;
-    }
 
-    panelRolls.classList.toggle('hidden', activeOracleTab !== 'rolls');
+    panelRolls.classList.toggle('hidden', activeOracleTab === 'passives');
     panelPassives.classList.toggle('hidden', activeOracleTab !== 'passives');
-    if (panelEquipped) {
-      panelEquipped.classList.toggle('hidden', activeOracleTab !== 'equipped');
-    }
   }
 
-  // Mini-barra visível mesmo na aba de Dados para acompanhar passivas ligadas da ficha atual
+  // Mini-barra visível mesmo na aba de Dados mostrando os poderes/magias ativos na mesa
   if (miniBar) {
-    if (activePassives.length === 0) {
+    const myActives = Array.isArray(char?.activePassives) ? char.activePassives : [];
+    if (myActives.length === 0) {
       miniBar.innerHTML = '';
     } else {
       miniBar.innerHTML = `
@@ -3299,222 +3311,81 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
             <span class="text-[9px] font-display font-bold uppercase text-eldritch-300 shrink-0">
               <i class="fa-solid fa-eye text-emerald-400 animate-pulse mr-1"></i>Ativas:
             </span>
-            ${activePassives.map(ap => `
+            ${myActives.map(ap => `
               <span class="px-2 py-0.5 rounded bg-obsidian-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold truncate max-w-[140px]">
                 ${escapeHtml(ap.name)}
               </span>
             `).join('')}
           </div>
           <button onclick="app.switchOracleTab('passives')" class="text-[10px] text-brass-300 hover:underline shrink-0 font-semibold">
-            Ver
+            Ver Mesa
           </button>
         </div>
       `;
     }
   }
 
-  // Renderiza o painel lateral de Itens Equipados da Mesa (#oracleEquippedPanel)
-  if (panelEquipped) {
-    const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
-    const campCharIds = new Set(activeCamp?.characterIds || []);
-    const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
-
-    panelEquipped.innerHTML = `
-      <div class="space-y-3">
-        <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 flex items-center justify-between gap-2">
-          <div>
-            <h4 class="font-display font-bold text-xs uppercase text-brass-200 flex items-center gap-1.5">
-              <i class="fa-solid fa-hands-holding-circle text-brass-400"></i> Itens Equipados na Mesa
-            </h4>
-            <p class="text-[10px] text-slate-400">O que cada jogador da campanha está empunhando</p>
-          </div>
-          <button onclick="app.switchSheetTab('equipped')" class="px-2.5 py-1 rounded bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-[10px] font-bold shrink-0">
-            Abrir Aba
-          </button>
-        </div>
-
-        <div class="space-y-2.5">
-          ${partyChars.map(pc => {
-            const pcEquipped = getCharacterEquippedItemsList(pc);
-            return `
-              <div class="bg-obsidian-950/85 border ${char && pc.id === char.id ? 'border-brass-400/60' : 'border-slate-800'} rounded-xl p-3 space-y-2">
-                <div class="flex items-center gap-2 border-b border-slate-800/80 pb-1.5">
-                  ${pc.avatarUrl ? `
-                    <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}" class="w-7 h-7 rounded-md object-cover border border-brass-400/40 shrink-0" />
-                  ` : `
-                    <div class="w-7 h-7 rounded-md bg-obsidian-900 border border-slate-700 flex items-center justify-center text-brass-300 text-[10px] shrink-0">
-                      <i class="fa-solid fa-user"></i>
-                    </div>
-                  `}
-                  <div class="min-w-0">
-                    <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(pc.name)}</div>
-                    <div class="text-[9px] text-slate-400 truncate">${escapeHtml(pc.pathway || '')}</div>
-                  </div>
-                </div>
-                ${pcEquipped.length === 0 ? `
-                  <p class="text-[11px] text-slate-500 italic">Mãos livres (nada equipado).</p>
-                ` : `
-                  <div class="space-y-1">
-                    ${pcEquipped.map(eqItem => `
-                      <div class="bg-obsidian-900/90 border border-slate-800 rounded-lg px-2 py-1.5">
-                        <div class="flex items-center justify-between gap-1">
-                          <span class="px-1.5 py-0.2 rounded text-[9px] font-display font-bold uppercase border ${eqItem.slotMeta.badgeClass}">
-                            <i class="fa-solid ${eqItem.slotMeta.icon} mr-1"></i>${escapeHtml(eqItem.slotMeta.short)}
-                          </span>
-                          <span class="text-[9px] text-slate-400 truncate">${escapeHtml(eqItem.category)}</span>
-                        </div>
-                        <div class="font-bold text-xs text-slate-100 mt-0.5 truncate">${escapeHtml(eqItem.name)}</div>
-                        <div class="text-[10px] text-slate-400 truncate">${escapeHtml(eqItem.detail)}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                `}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
   if (!panelPassives) return;
-  if (!forceRebuild && isUserTypingInContainer(panelPassives)) return;
-
-  if (!char) {
-    panelPassives.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Selecione ou crie sua ficha para gerenciar suas Passivas Ativas.</div>`;
-    return;
-  }
-
-  const activeNames = new Set(activePassives.map(p => (p.name || '').toLowerCase()));
-  // Lista SOMENTE os poderes cadastrados na própria ficha ativa (nunca poderes de outros jogadores!)
-  const myOwnPowers = Array.isArray(char.powers) ? char.powers : [];
-
-  // Outros personagens da campanha com passivas ligadas (apenas visualização informativa, sem botões de ativar!)
-  const otherActiveChars = Object.values(charactersMap || {}).filter(
-    c => c.id !== char.id && Array.isArray(c.activePassives) && c.activePassives.length > 0
-  );
 
   panelPassives.innerHTML = `
-    <div class="space-y-3.5">
-      <!-- 1. PASSIVAS ATIVAS NO MOMENTO (EXCLUSIVO DA SUA FICHA ATIVA) -->
-      <div class="bg-obsidian-950/90 border border-emerald-500/40 rounded-xl p-3 space-y-2.5">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <span class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-eye text-emerald-400 animate-pulse"></i> Passivas Ativas de ${escapeHtml(char.name)}
-          </span>
-          <span class="text-[10px] text-astral-300 font-bold">PE: ${char.vitals?.sp?.current ?? 0}/${char.vitals?.sp?.max ?? 0}</span>
-        </div>
-
-        ${activePassives.length === 0 ? `
-          <p class="text-xs text-slate-500 italic text-center py-2">
-            Nenhuma passiva ligada em <strong>${escapeHtml(char.name)}</strong>. Ative um dos poderes da sua ficha abaixo!
-          </p>
-        ` : `
-          <div class="space-y-2">
-            ${activePassives.map((ap, idx) => `
-              <div class="bg-obsidian-900/95 border border-emerald-500/40 rounded-lg p-2.5 space-y-1.5 shadow-md">
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
-                      <h4 class="font-display font-bold text-xs text-emerald-200 truncate">${escapeHtml(ap.name)}</h4>
-                    </div>
-                    ${ap.description ? `<p class="text-[11px] text-slate-300 mt-0.5 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
-                  </div>
-                  ${canControlActiveChar ? `
-                    <button onclick="app.deactivatePassive(${idx})" title="Desativar esta passiva"
-                      class="px-2 py-0.5 rounded bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[10px] font-bold shrink-0 transition-all">
-                      Desativar
-                    </button>
-                  ` : ''}
-                </div>
-                <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
-                  <span class="text-slate-400">Custo: <strong class="text-astral-300">${ap.cost ?? 0} PE</strong></span>
-                  ${(canControlActiveChar && (ap.cost ?? 0) > 0) ? `
-                    <button onclick="app.spendPassiveMaintenancePE(${idx})"
-                      class="px-2 py-0.5 rounded bg-astral-900/70 hover:bg-astral-500 text-astral-200 hover:text-obsidian-950 border border-astral-500/40 font-bold transition-all">
-                      <i class="fa-solid fa-star-of-life mr-1"></i>Manter (-${ap.cost} PE)
-                    </button>
-                  ` : `<span class="text-emerald-400 font-semibold">Ativa</span>`}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `}
+    <div class="space-y-3">
+      <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 space-y-1">
+        <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-200 flex items-center gap-1.5">
+          <i class="fa-solid fa-eye text-emerald-400"></i> Poderes, Habilidades & Magias Ativos na Mesa
+        </h4>
+        <p class="text-[11px] text-slate-400 leading-snug">
+          Modo de visualização sincronizado da campanha. Para ativar ou desativar um poder ou magia, use o botão <strong>"Manter Ativo na Mesa"</strong> dentro das abas <em>Poderes Beyonder</em> ou <em>Magias & Rituais</em> da sua ficha.
+        </p>
       </div>
 
-      ${canControlActiveChar ? `
-        <!-- 2. PODERES DA SUA PRÓPRIA FICHA (SOMENTE PODERES DE ${escapeHtml(char.name)}) -->
-        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2.5">
-          <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-hand-sparkles text-eldritch-400"></i> Poderes da Ficha de ${escapeHtml(char.name)}
-          </h4>
-          ${myOwnPowers.length === 0 ? `
-            <p class="text-[11px] text-slate-500 italic">
-              Nenhum poder cadastrado na aba "Poderes Beyonder" desta ficha. Cadastre seus poderes lá ou ative uma passiva abaixo.
-            </p>
-          ` : `
-            <div class="space-y-1.5">
-              ${myOwnPowers.map((pw, idx) => {
-                const isOn = activeNames.has((pw.name || '').toLowerCase());
-                return `
-                  <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
-                    <div class="min-w-0">
-                      <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-eldritch-200'} truncate">
-                        <i class="fa-solid fa-hand-sparkles mr-1 text-eldritch-400"></i>${escapeHtml(pw.name || 'Poder')}
-                      </div>
-                      <div class="text-[10px] text-slate-400 truncate">${escapeHtml(pw.sequence || 'Poder da Ficha')} • ${pw.cost ?? 0} PE</div>
-                    </div>
-                    <button onclick="app.togglePowerAsActivePassive(${idx})"
-                      class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-eldritch-500 text-eldritch-200 hover:text-white border border-eldritch-400/35'}">
-                      ${isOn ? 'Desativar' : 'Ativar'}
-                    </button>
+      ${charsWithActivePassives.length === 0 ? `
+        <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-6 text-center space-y-2">
+          <i class="fa-solid fa-eye-slash text-2xl text-slate-600"></i>
+          <p class="text-xs text-slate-400 font-semibold">Nenhum poder, habilidade ou magia ativo na mesa neste momento.</p>
+          <p class="text-[11px] text-slate-500">Quando qualquer jogador ativar sua Visão Espiritual, poder ou magia sustentada na ficha, ela aparecerá aqui para todos acompanharem.</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${charsWithActivePassives.map(c => `
+            <div class="bg-obsidian-950/90 border ${char && c.id === char.id ? 'border-emerald-500/50' : 'border-slate-800'} rounded-xl p-3 space-y-2.5 shadow-md">
+              <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+                ${c.avatarUrl ? `
+                  <img src="${escapeHtml(c.avatarUrl)}" alt="${escapeHtml(c.name)}" class="w-8 h-8 rounded-lg object-cover border border-brass-400/50 shrink-0" />
+                ` : `
+                  <div class="w-8 h-8 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-xs shrink-0">
+                    <i class="fa-solid fa-user-secret"></i>
                   </div>
-                `;
-              }).join('')}
-            </div>
-          `}
-        </div>
-
-        <!-- 3. ATIVAR PASSIVA PERSONALIZADA NA SUA FICHA -->
-        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
-          <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-slate-300">
-            <i class="fa-solid fa-plus-circle text-brass-400 mr-1"></i> Ativar Passiva / Visão Espiritual
-          </h4>
-          <div class="grid grid-cols-12 gap-1.5">
-            <input id="customPassiveNameInput" type="text" placeholder="Ex: Visão Espiritual" class="sheet-input col-span-8 px-2.5 py-1 rounded text-xs font-bold" />
-            <input id="customPassiveCostInput" type="number" min="0" value="1" title="Custo de PE" placeholder="PE" class="sheet-input col-span-4 px-2 py-1 rounded text-xs text-center text-astral-300 font-bold" />
-          </div>
-          <input id="customPassiveDescInput" type="text" placeholder="Efeito ativo para acompanhar..." class="sheet-input w-full px-2.5 py-1 rounded text-xs" />
-          <button onclick="app.addCustomActivePassive()" class="w-full py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider shadow transition-all">
-            <i class="fa-solid fa-eye mr-1"></i> Ativar na Minha Ficha
-          </button>
-        </div>
-      ` : ''}
-
-      <!-- 4. OUTROS JOGADORES COM PASSIVAS ATIVAS NA MESA (SOMENTE LEITURA) -->
-      ${otherActiveChars.length > 0 ? `
-        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
-          <h4 class="font-display font-bold text-[10px] uppercase tracking-wider text-slate-400">
-            <i class="fa-solid fa-users-rays text-brass-400 mr-1"></i> Passivas Ativas de Outros Jogadores (Visualização)
-          </h4>
-          <div class="space-y-1.5">
-            ${otherActiveChars.map(oc => `
-              <div class="bg-obsidian-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
-                <div class="font-display font-bold text-brass-200">${escapeHtml(oc.name)}</div>
-                <div class="flex flex-wrap gap-1 mt-1">
-                  ${(oc.activePassives || []).map(ap => `
-                    <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
-                      <i class="fa-solid fa-eye mr-1"></i>${escapeHtml(ap.name)}
-                    </span>
-                  `).join('')}
+                `}
+                <div class="min-w-0 flex-1">
+                  <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(c.name)}</div>
+                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(c.pathway || '')} • ${c.sequence === 'Humana' ? 'Humano' : `Seq. ${c.sequence}`}</div>
                 </div>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold shrink-0">
+                  ${c.activePassives.length} ativa${c.activePassives.length > 1 ? 's' : ''}
+                </span>
               </div>
-            `).join('')}
-          </div>
+
+              <div class="space-y-2">
+                ${(c.activePassives || []).map(ap => `
+                  <div class="bg-obsidian-900/95 border border-emerald-500/30 rounded-lg p-2.5 space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                        <span class="font-display font-bold text-xs text-emerald-200 truncate">${escapeHtml(ap.name)}</span>
+                      </div>
+                      <span class="px-1.5 py-0.5 rounded bg-obsidian-950 border border-slate-800 text-[9px] font-bold uppercase ${ap.sourceType === 'spells' ? 'text-astral-300' : 'text-eldritch-300'} shrink-0">
+                        ${escapeHtml(ap.categoryLabel || (ap.sourceType === 'spells' ? 'Magia / Ritual' : 'Poder / Passiva'))}
+                      </span>
+                    </div>
+                    ${ap.description ? `<p class="text-[11px] text-slate-300 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
+                    ${(ap.cost ?? 0) > 0 ? `<div class="text-[10px] text-astral-300 font-semibold">Custo: ${ap.cost} PE</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
         </div>
-      ` : ''}
+      `}
     </div>
   `;
 }

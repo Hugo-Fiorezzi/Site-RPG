@@ -883,11 +883,20 @@
                   </div>
 
                   <div>
-                    <label class="block font-display font-bold text-sm text-slate-200 uppercase tracking-wider mb-1.5">
-                      <i class="fa-solid fa-book-skull text-eldritch-400 mr-1.5"></i> Diário de Investigação, Fórmulas & Antecedentes
+                    <label class="block font-display font-bold text-sm text-amber-300 uppercase tracking-wider mb-1.5">
+                      <i class="fa-solid fa-scroll text-amber-400 mr-1.5"></i> Background & História do Personagem
                     </label>
-                    <textarea id="charBackstory" rows="6" oninput="app.updateField('backstory', this.value)"
-                      placeholder="História do personagem, pistas da campanha, fórmulas de poções descobertas..."
+                    <textarea id="charBackgroundStory" rows="5" oninput="app.updateField('backgroundStory', this.value)"
+                      placeholder="Escreva a origem, passado, motivações, traumas e trajetória de vida do seu personagem..."
+                      class="sheet-input w-full p-3 rounded-xl text-sm leading-relaxed"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block font-display font-bold text-sm text-slate-200 uppercase tracking-wider mb-1.5">
+                      <i class="fa-solid fa-book-skull text-eldritch-400 mr-1.5"></i> Diário de Investigação, Pistas & Fórmulas
+                    </label>
+                    <textarea id="charBackstory" rows="5" oninput="app.updateField('backstory', this.value)"
+                      placeholder="Anotações das sessões, pistas da campanha, nomes suspeitos e fórmulas de poções descobertas..."
                       class="sheet-input w-full p-3 rounded-xl text-sm leading-relaxed"></textarea>
                   </div>
                 </div>
@@ -916,18 +925,16 @@
           </button>
         </div>
 
-        <!-- Alternador de Abas do Oráculo: Dados vs Passivas Ativas vs Itens Equipados -->
-        <div class="grid grid-cols-3 gap-1 bg-obsidian-950 p-1 rounded-xl border border-slate-800 mb-3 shrink-0">
-          <button id="oracleTabBtn-rolls" onclick="app.switchOracleTab('rolls')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 bg-brass-400 text-obsidian-950 shadow">
+        <!-- Alternador de Abas do Oráculo: Dados vs Passivas Ativas (Visualização da Mesa) -->
+        <div class="grid grid-cols-2 gap-1.5 bg-obsidian-950 p-1 rounded-xl border border-slate-800 mb-3 shrink-0">
+          <button id="oracleTabBtn-rolls" onclick="app.switchOracleTab('rolls')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow">
             <i class="fa-solid fa-dice-d20"></i> Rolagens
           </button>
-          <button id="oracleTabBtn-passives" onclick="app.switchOracleTab('passives')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200">
+          <button id="oracleTabBtn-passives" onclick="app.switchOracleTab('passives')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200">
             <i class="fa-solid fa-eye"></i> Passivas Ativas
-            <span id="activePassivesCountBadge" class="px-1 py-0.2 rounded-full bg-eldritch-600 text-white text-[9px] font-extrabold">0</span>
+            <span id="activePassivesCountBadge" class="px-1.5 py-0.2 rounded-full bg-eldritch-600 text-white text-[9px] font-extrabold">0</span>
           </button>
-          <button id="oracleTabBtn-equipped" onclick="app.switchOracleTab('equipped')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200">
-            <i class="fa-solid fa-hands-holding-circle"></i> Equipados
-          </button>
+          <button id="oracleTabBtn-equipped" onclick="app.switchOracleTab('equipped')" class="hidden">Equipados</button>
         </div>
 
         <!-- ABA 1 DO ORÁCULO: ROLAGENS DE DADOS -->
@@ -975,7 +982,11 @@
         <div id="oraclePassivesPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1"></div>
 
         <!-- ABA 3 DO ORÁCULO: ITENS EQUIPADOS NA MESA -->
-        <div id="oracleEquippedPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1"></div>
+        <div id="oracleEquippedPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1">
+          <input id="customPassiveNameInput" type="hidden" />
+          <input id="customPassiveCostInput" type="hidden" />
+          <input id="customPassiveDescInput" type="hidden" />
+        </div>
       </div>
     </aside>
 

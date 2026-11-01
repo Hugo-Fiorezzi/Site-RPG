@@ -1422,7 +1422,23 @@ class BeyonderGrimoireController {
     const ch = this.charactersMap[charId] || this.getActiveChar();
     if (!ch) return;
     if (!ch.turnActions) ch.turnActions = { ...DEFAULT_TURN_ACTIONS };
-    ch.turnActions[actionKey] = !ch.turnActions[actionKey];
+
+    if (actionKey === 'completa') {
+      const bothAvailable = ch.turnActions.padrao !== false && ch.turnActions.bonus !== false;
+      if (bothAvailable) {
+        ch.turnActions.padrao = false;
+        ch.turnActions.bonus = false;
+        showToast(`${ch.name} gastou Ação Completa (Ação Padrão + Ação Bônus utilizadas)!`);
+      } else {
+        ch.turnActions.padrao = true;
+        ch.turnActions.bonus = true;
+        showToast(`Ação Padrão e Ação Bônus de ${ch.name} restauradas.`);
+      }
+    } else {
+      ch.turnActions[actionKey] = !ch.turnActions[actionKey];
+    }
+
+    ch.updatedAt = Date.now();
     this.renderAll();
     this.storage.saveCharacter(ch, this.charactersMap);
   }
@@ -2295,7 +2311,47 @@ class BeyonderGrimoireController {
     await this.storage.saveCharacter(char, this.charactersMap);
   }
 
+  async toggleMysticAsActivePassive(collectionKey, itemIdx) {
+    const char = this.getActiveChar();
+    const item = char?.[collectionKey]?.[itemIdx];
+    if (!char || !item) return;
+
+    if (!Array.isArray(char.activePassives)) char.activePassives = [];
+    const existingIdx = char.activePassives.findIndex(ap => (ap.name || '').toLowerCase() === (item.name || '').toLowerCase());
+
+    if (existingIdx >= 0) {
+      const removed = char.activePassives.splice(existingIdx, 1)[0];
+      showToast(`"${removed.name}" removida das Passivas Ativas da Mesa.`);
+    } else {
+      const cost = Number(item.cost) || 0;
+      if (cost > 0 && char.vitals?.sp) {
+        char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - cost);
+      }
+      const isSpell = collectionKey === 'spells';
+      char.activePassives.unshift({
+        id: `pas_${Date.now()}`,
+        name: item.name || (isSpell ? 'Magia Ativa' : 'Poder Ativo'),
+        sourceType: collectionKey,
+        categoryLabel: isSpell ? (item.level || 'Magia / Ritual') : (item.sequence || 'Poder Beyonder'),
+        cost,
+        icon: isSpell ? 'fa-wand-sparkles' : 'fa-hand-sparkles',
+        description: item.description || ''
+      });
+      showToast(`"${item.name}" agora está visível nas Passivas Ativas da Mesa!${cost > 0 ? ` (-${cost} PE)` : ''}`, 'crit');
+    }
+
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderMysticList(char, collectionKey, true);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+  }
+
   async togglePowerAsActivePassive(powerIdx) {
+    return this.toggleMysticAsActivePassive('powers', powerIdx);
+  }
+
+  async _legacyTogglePowerAsActivePassive(powerIdx) {
     const char = this.getActiveChar();
     const pw = char?.powers?.[powerIdx];
     if (!char || !pw) return;
