@@ -2,6 +2,7 @@ import {
   ATTRIBUTES_DEF,
   SAVING_THROWS_DEF,
   SKILLS_DEF,
+  EQUIP_SLOTS_DEF,
   DEFAULT_TURN_ACTIONS,
   PASSIVE_ABILITY_PRESETS,
   DEFAULT_COMBAT_STATE,
@@ -39,6 +40,7 @@ import {
   renderMysticList,
   renderMutationsList,
   renderResistancesAndWeaknesses,
+  renderEquippedItemsTab,
   renderCampaignStoreTab,
   renderDiceLogs,
   renderOraclePassivesSection
@@ -194,7 +196,8 @@ class BeyonderGrimoireController {
         this.actionFilterMode,
         this.campaignState,
         this.currentUser,
-        this.storeUIState
+        this.storeUIState,
+        this.charactersMap
       );
     }
     renderDiceLogs(this.diceLogs, this.campaignState, this.activeCharacterId, this.viewMode, this.currentUser);
@@ -1570,7 +1573,7 @@ class BeyonderGrimoireController {
     if (!char.attributes) char.attributes = {};
     if (!char.attributes[attrKey]) char.attributes[attrKey] = { value: 10, bonus: 0 };
     char.attributes[attrKey][field] = val;
-    renderCharacterSheet(char, this.activeSheetTab, this.skillSortMode, this.actionFilterMode, this.campaignState, this.currentUser, this.storeUIState);
+    renderCharacterSheet(char, this.activeSheetTab, this.skillSortMode, this.actionFilterMode, this.campaignState, this.currentUser, this.storeUIState, this.charactersMap);
     this.scheduleAutoSave();
   }
 
@@ -1662,8 +1665,72 @@ class BeyonderGrimoireController {
     const char = this.getActiveChar();
     if (!char?.[collectionKey]) return;
     char[collectionKey].splice(index, 1);
+    char.updatedAt = Date.now();
     this.renderSpecificCollection(char, collectionKey, true);
+    renderEquippedItemsTab(char, this.charactersMap, this.campaignState, this.currentUser);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
     this.scheduleAutoSave();
+  }
+
+  moveCollectionItem(collectionKey, index, direction) {
+    const char = this.getActiveChar();
+    const list = char?.[collectionKey];
+    if (!Array.isArray(list)) return;
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+
+    char.updatedAt = Date.now();
+    this.renderSpecificCollection(char, collectionKey, true);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    this.scheduleAutoSave();
+  }
+
+  async equipCharacterItem(collectionKey, index, slotKey) {
+    const char = this.getActiveChar();
+    const targetItem = char?.[collectionKey]?.[index];
+    if (!char || !targetItem) return;
+
+    const cleanSlot = String(slotKey || '');
+
+    // Se equipar em Mão Direita, Mão Esquerda ou Duas Mãos, libera automaticamente conflitos de empunhadura
+    if (cleanSlot) {
+      const clearConflictingSlot = (item, srcKey, idx) => {
+        if (srcKey === collectionKey && idx === index) return;
+        const cur = item.equipSlot || '';
+        if (!cur) return;
+        if (cleanSlot === 'duas_maos') {
+          item.equipSlot = '';
+        } else if (cleanSlot === 'mao_direita' && (cur === 'mao_direita' || cur === 'duas_maos')) {
+          item.equipSlot = '';
+        } else if (cleanSlot === 'mao_esquerda' && (cur === 'mao_esquerda' || cur === 'duas_maos')) {
+          item.equipSlot = '';
+        }
+      };
+
+      (char.weapons || []).forEach((w, i) => clearConflictingSlot(w, 'weapons', i));
+      (char.equipment || []).forEach((eq, i) => clearConflictingSlot(eq, 'equipment', i));
+    }
+
+    targetItem.equipSlot = cleanSlot;
+    char.updatedAt = Date.now();
+
+    renderWeaponsList(char, true);
+    renderEquipmentList(char, true);
+    renderEquippedItemsTab(char, this.charactersMap, this.campaignState, this.currentUser);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+
+    await this.storage.saveCharacter(char, this.charactersMap);
+
+    const slotMeta = EQUIP_SLOTS_DEF.find(s => s.key === cleanSlot);
+    if (cleanSlot && slotMeta) {
+      showToast(`"${targetItem.name}" equipado em ${slotMeta.label}!`, 'crit');
+    } else {
+      showToast(`"${targetItem.name}" guardado na mochila.`);
+    }
   }
 
   adjustWeaponAmmo(idx, delta) {
@@ -2188,7 +2255,11 @@ class BeyonderGrimoireController {
 
   // --- ABA DE PASSIVAS ATIVAS NO ORÁCULO DE DADOS (VISÃO ESPIRITUAL, ETC.) ---
   switchOracleTab(tab) {
-    this.activeOracleTab = tab === 'passives' ? 'passives' : 'rolls';
+    if (tab === 'passives' || tab === 'equipped') {
+      this.activeOracleTab = tab;
+    } else {
+      this.activeOracleTab = 'rolls';
+    }
     renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
   }
 

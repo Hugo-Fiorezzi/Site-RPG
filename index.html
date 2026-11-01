@@ -610,6 +610,9 @@
                 <button onclick="app.switchSheetTab('combat')" id="tabBtn-combat" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-gun"></i> Combate & Itens
                 </button>
+                <button onclick="app.switchSheetTab('equipped')" id="tabBtn-equipped" class="sheet-tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-hands-holding-circle"></i> Itens Equipados
+                </button>
                 <button onclick="app.switchSheetTab('powers')" id="tabBtn-powers" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-hand-sparkles"></i> Poderes Beyonder
                 </button>
@@ -708,6 +711,11 @@
 
                   <div id="equipmentListContainer" class="space-y-3"></div>
                 </div>
+              </div>
+
+              <!-- ABA NOVA: ITENS EQUIPADOS (MÃO DIREITA, ESQUERDA, DUAS MÃOS & VISÃO DE TODOS OS JOGADORES) -->
+              <div id="tabContent-equipped" class="hidden space-y-4">
+                <div id="equippedItemsTabContainer"></div>
               </div>
 
               <!-- ABA 2: PODERES BEYONDER & RESUMOS DE EVOLUÇÃO DA POÇÃO -->
@@ -908,14 +916,17 @@
           </button>
         </div>
 
-        <!-- Alternador de Abas do Oráculo: Dados vs Passivas Ativas -->
-        <div class="grid grid-cols-2 gap-1.5 bg-obsidian-950 p-1 rounded-xl border border-slate-800 mb-3 shrink-0">
-          <button id="oracleTabBtn-rolls" onclick="app.switchOracleTab('rolls')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow">
+        <!-- Alternador de Abas do Oráculo: Dados vs Passivas Ativas vs Itens Equipados -->
+        <div class="grid grid-cols-3 gap-1 bg-obsidian-950 p-1 rounded-xl border border-slate-800 mb-3 shrink-0">
+          <button id="oracleTabBtn-rolls" onclick="app.switchOracleTab('rolls')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 bg-brass-400 text-obsidian-950 shadow">
             <i class="fa-solid fa-dice-d20"></i> Rolagens
           </button>
-          <button id="oracleTabBtn-passives" onclick="app.switchOracleTab('passives')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200">
+          <button id="oracleTabBtn-passives" onclick="app.switchOracleTab('passives')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200">
             <i class="fa-solid fa-eye"></i> Passivas Ativas
-            <span id="activePassivesCountBadge" class="px-1.5 py-0.2 rounded-full bg-eldritch-600 text-white text-[9px] font-extrabold">0</span>
+            <span id="activePassivesCountBadge" class="px-1 py-0.2 rounded-full bg-eldritch-600 text-white text-[9px] font-extrabold">0</span>
+          </button>
+          <button id="oracleTabBtn-equipped" onclick="app.switchOracleTab('equipped')" class="py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200">
+            <i class="fa-solid fa-hands-holding-circle"></i> Equipados
           </button>
         </div>
 
@@ -962,6 +973,9 @@
 
         <!-- ABA 2 DO ORÁCULO: PASSIVAS ATIVAS (VISÃO ESPIRITUAL, ETC.) -->
         <div id="oraclePassivesPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1"></div>
+
+        <!-- ABA 3 DO ORÁCULO: ITENS EQUIPADOS NA MESA -->
+        <div id="oracleEquippedPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1"></div>
       </div>
     </aside>
 

@@ -17,6 +17,13 @@ export const SAVING_THROWS_DEF = [
   { key: 'vontade', name: 'Vontade / Corrupção', defaultAttr: 'sab' }
 ];
 
+export const EQUIP_SLOTS_DEF = [
+  { key: '', label: 'Guardado (Não Equipado)', short: 'Guardado', icon: 'fa-box-archive', badgeClass: 'bg-obsidian-900 text-slate-400 border-slate-700' },
+  { key: 'mao_direita', label: 'Mão Direita', short: 'Mão Direita', icon: 'fa-hand-fist', badgeClass: 'bg-amber-950/90 text-amber-200 border-amber-400/50' },
+  { key: 'mao_esquerda', label: 'Mão Esquerda', short: 'Mão Esquerda', icon: 'fa-hand', badgeClass: 'bg-astral-950/90 text-astral-200 border-astral-400/50' },
+  { key: 'duas_maos', label: 'Duas Mãos', short: 'Duas Mãos', icon: 'fa-hands-holding-circle', badgeClass: 'bg-crimson-950/90 text-crimson-200 border-crimson-400/50' }
+];
+
 export const ACTION_TYPES = [
   { key: 'padrao', label: 'Ação Padrão', short: 'Padrão', icon: 'fa-hand-fist', badgeClass: 'bg-crimson-950/90 text-crimson-300 border-crimson-500/40' },
   { key: 'bonus', label: 'Ação Bônus', short: 'Bônus', icon: 'fa-bolt', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' },
@@ -449,6 +456,7 @@ export function createCollectionItemTemplate(collectionKey, character) {
       damage: '1d8+2',
       type: 'Perfurante • 18m',
       actionType: 'padrao',
+      equipSlot: '',
       isFirearm: true,
       ammoCurrent: 6,
       ammoMax: 6
@@ -457,6 +465,7 @@ export function createCollectionItemTemplate(collectionKey, character) {
       id: uid,
       name: 'Novo Item / Artefato Selado',
       category: 'Instrumento Místico',
+      equipSlot: '',
       quantity: 1,
       description: ''
     },

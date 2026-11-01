@@ -76,6 +76,7 @@ export function createDefaultCharacter(overrides = {}) {
         damage: '1d8+2',
         type: 'Perfurante / Purificador • 24m',
         actionType: 'padrao',
+        equipSlot: 'mao_direita',
         isFirearm: true,
         ammoCurrent: 5,
         ammoMax: 6
@@ -87,6 +88,7 @@ export function createDefaultCharacter(overrides = {}) {
         damage: '1d6+2',
         type: 'Cortante • Corpo a Corpo',
         actionType: 'padrao',
+        equipSlot: 'mao_esquerda',
         isFirearm: false,
         ammoCurrent: 0,
         ammoMax: 0

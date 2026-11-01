@@ -6,6 +6,7 @@ import {
   EQUIPMENT_CATEGORIES,
   MUTATION_TYPES,
   MUTATION_SEVERITIES,
+  EQUIP_SLOTS_DEF,
   ACTION_TYPES,
   PASSIVE_ABILITY_PRESETS,
   DEFAULT_TURN_ACTIONS,
@@ -1179,7 +1180,7 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
   `;
 }
 
-export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alpha', actionFilterMode = 'all', campaignState = null, currentUser = null, storeUIState = null) {
+export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alpha', actionFilterMode = 'all', campaignState = null, currentUser = null, storeUIState = null, charactersMap = null) {
   const emptyPrompt = document.getElementById('playerNoSheetPrompt');
   const mainSheetContent = document.getElementById('characterSheetMainContent');
 
@@ -1299,6 +1300,7 @@ export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alph
   renderMysticList(char, 'spells');
   renderMutationsList(char);
   renderResistancesAndWeaknesses(char);
+  renderEquippedItemsTab(char, charactersMap, campaignState, currentUser);
   renderCampaignStoreTab(char, campaignState, currentUser, storeUIState);
   renderSequenceSummariesList(char, isGMUser);
   renderDowntimeTab(char, campaignState);
@@ -1751,7 +1753,7 @@ export function renderSkillsList(char, sortMode = 'alpha', forceRebuild = false)
 }
 
 export function renderSheetTabsUI(activeSheetTab) {
-  const tabs = ['combat', 'powers', 'spells', 'mutations', 'resistances', 'store', 'downtime', 'notes'];
+  const tabs = ['combat', 'equipped', 'powers', 'spells', 'mutations', 'resistances', 'store', 'downtime', 'notes'];
   tabs.forEach(t => {
     const btn = document.getElementById(`tabBtn-${t}`);
     const content = document.getElementById(`tabContent-${t}`);
@@ -1977,10 +1979,20 @@ export function renderWeaponsList(char, forceRebuild = false) {
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-900/70 px-3 py-2 rounded-lg border border-slate-800/90">
-          <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-            <input type="checkbox" ${isFirearm ? 'checked' : ''} onchange="app.updateCollectionItem('weapons', ${idx}, 'isFirearm', this.checked, true)" class="accent-amber-400 rounded" />
-            <span class="font-semibold text-[11px]"><i class="fa-solid fa-gun text-brass-400 mr-1"></i>Arma de Fogo (Munição)</span>
-          </label>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-display uppercase text-brass-300 font-bold"><i class="fa-solid fa-hand-fist mr-1"></i>Empunhadura:</span>
+              <select onchange="app.equipCharacterItem('weapons', ${idx}, this.value)"
+                class="sheet-input px-2 py-1 rounded text-xs font-bold ${w.equipSlot ? 'text-amber-300 border-amber-400/50 bg-amber-950/40' : 'text-slate-400'}">
+                ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(w.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
+              </select>
+            </div>
+
+            <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" ${isFirearm ? 'checked' : ''} onchange="app.updateCollectionItem('weapons', ${idx}, 'isFirearm', this.checked, true)" class="accent-amber-400 rounded" />
+              <span class="font-semibold text-[11px]"><i class="fa-solid fa-gun text-brass-400 mr-1"></i>Arma de Fogo</span>
+            </label>
+          </div>
 
           ${isFirearm ? `
             <div class="flex flex-wrap items-center gap-2">
@@ -2039,8 +2051,14 @@ export function renderEquipmentList(char, forceRebuild = false) {
         <input type="text" value="${escapeHtml(item.name || '')}" oninput="app.updateCollectionItem('equipment', ${idx}, 'name', this.value)"
           placeholder="Nome do Item ou Artefato Selado" class="sheet-input flex-1 min-w-[180px] px-2.5 py-1.5 rounded text-xs font-bold text-amber-200" />
         
-        <select onchange="app.updateCollectionItem('equipment', ${idx}, 'category', this.value)" class="sheet-input px-2.5 py-1.5 rounded text-xs text-eldritch-300">
+        <select onchange="app.updateCollectionItem('equipment', ${idx}, 'category', this.value)" class="sheet-input px-2 py-1.5 rounded text-xs text-eldritch-300">
           ${EQUIPMENT_CATEGORIES.map(cat => `<option value="${cat}" ${item.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+        </select>
+
+        <select onchange="app.equipCharacterItem('equipment', ${idx}, this.value)"
+          title="Equipar item na Mão Direita, Mão Esquerda ou Duas Mãos"
+          class="sheet-input px-2 py-1.5 rounded text-xs font-bold ${item.equipSlot ? 'text-amber-300 border-amber-400/50 bg-amber-950/40' : 'text-slate-400'}">
+          ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(item.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
         </select>
 
         <div class="flex items-center gap-1">
@@ -2105,6 +2123,18 @@ export function renderMysticList(char, collectionKey, forceRebuild = false) {
           </div>
 
           <div class="sm:col-span-2 flex items-end justify-end gap-1 pt-3">
+            <div class="flex flex-col gap-0.5 mr-0.5">
+              <button onclick="app.moveCollectionItem('${collectionKey}', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}
+                title="Subir posição na ordem"
+                class="px-1.5 py-0.5 rounded bg-obsidian-900 hover:bg-brass-500/30 text-slate-400 hover:text-brass-200 border border-slate-800 text-[9px] disabled:opacity-25">
+                <i class="fa-solid fa-arrow-up"></i>
+              </button>
+              <button onclick="app.moveCollectionItem('${collectionKey}', ${idx}, 1)" ${idx === list.length - 1 ? 'disabled' : ''}
+                title="Descer posição na ordem"
+                class="px-1.5 py-0.5 rounded bg-obsidian-900 hover:bg-brass-500/30 text-slate-400 hover:text-brass-200 border border-slate-800 text-[9px] disabled:opacity-25">
+                <i class="fa-solid fa-arrow-down"></i>
+              </button>
+            </div>
             <button onclick="app.useMysticResource('${collectionKey}', ${idx}, true)"
               class="flex-1 py-1.5 px-2 rounded-lg ${isPowers ? 'bg-eldritch-600/40 hover:bg-eldritch-500 text-eldritch-200 border-eldritch-400/40' : 'bg-astral-600/40 hover:bg-astral-500 text-astral-200 border-astral-400/40'} hover:text-white border text-xs font-bold flex items-center justify-center gap-1 transition-all">
               <i class="fa-solid ${isPowers ? 'fa-bolt' : 'fa-wand-sparkles'}"></i> ${isPowers ? 'Usar' : 'Conjurar'}
@@ -3002,37 +3032,263 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
 }
 
 
+export function getCharacterEquippedItemsList(char) {
+  if (!char) return [];
+  const equipped = [];
+  const slotMap = {};
+  EQUIP_SLOTS_DEF.forEach(s => { slotMap[s.key] = s; });
+
+  (char.weapons || []).forEach((w, idx) => {
+    if (w.equipSlot && slotMap[w.equipSlot]) {
+      equipped.push({
+        source: 'weapons',
+        index: idx,
+        slotKey: w.equipSlot,
+        slotMeta: slotMap[w.equipSlot],
+        name: w.name || 'Arma',
+        detail: `Atq ${formatSigned(w.attackBonus ?? 0)} • Dano ${w.damage || '1d6'}${w.isFirearm ? ` • Mun: ${w.ammoCurrent ?? 0}/${w.ammoMax ?? 6}` : ''}`,
+        category: 'Arma / Combate'
+      });
+    }
+  });
+
+  (char.equipment || []).forEach((eq, idx) => {
+    if (eq.equipSlot && slotMap[eq.equipSlot]) {
+      equipped.push({
+        source: 'equipment',
+        index: idx,
+        slotKey: eq.equipSlot,
+        slotMeta: slotMap[eq.equipSlot],
+        name: eq.name || 'Item',
+        detail: eq.description || eq.category || 'Equipamento',
+        category: eq.category || 'Equipamento'
+      });
+    }
+  });
+
+  return equipped;
+}
+
+export function renderEquippedItemsTab(char, charactersMap, campaignState, currentUser) {
+  const container = document.getElementById('equippedItemsTabContainer');
+  if (!container || !char) return;
+
+  const isGMUser = currentUser?.role === 'gm';
+  const myEquipped = getCharacterEquippedItemsList(char);
+
+  const rightHandItem = myEquipped.find(i => i.slotKey === 'mao_direita' || i.slotKey === 'duas_maos');
+  const leftHandItem = myEquipped.find(i => i.slotKey === 'mao_esquerda' || i.slotKey === 'duas_maos');
+  const isTwoHanded = myEquipped.some(i => i.slotKey === 'duas_maos');
+
+  const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
+  const campCharIds = new Set(activeCamp?.characterIds || []);
+  const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+
+  container.innerHTML = `
+    <div class="space-y-5">
+      <!-- 1. EMPUNHADURA ATUAL DO PERSONAGEM SELECIONADO (MÃO DIREITA, MÃO ESQUERDA, DUAS MÃOS) -->
+      <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-3">
+          <div>
+            <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Empunhadura Ativa do Personagem</span>
+            <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+              <i class="fa-solid fa-hands-holding-circle text-brass-400"></i> Mãos & Itens Equipados de ${escapeHtml(char.name)}
+            </h3>
+          </div>
+          ${isTwoHanded ? `
+            <span class="px-2.5 py-1 rounded-full bg-crimson-950 text-crimson-200 border border-crimson-400/50 font-display font-bold text-xs">
+              <i class="fa-solid fa-hands-holding mr-1"></i> Empunhando com as Duas Mãos
+            </span>
+          ` : ''}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Slot Mão Direita -->
+          <div class="bg-obsidian-950/90 border ${rightHandItem ? 'border-amber-400/50' : 'border-slate-800'} rounded-xl p-4 flex flex-col justify-between space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="font-display font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-hand-fist text-amber-400"></i> Mão Direita ${isTwoHanded ? '(Duas Mãos)' : ''}
+              </span>
+              ${rightHandItem ? `
+                <button onclick="app.equipCharacterItem('${rightHandItem.source}', ${rightHandItem.index}, '')"
+                  class="px-2 py-0.5 rounded bg-obsidian-800 hover:bg-crimson-950 text-slate-300 hover:text-crimson-300 border border-slate-700 text-[10px] font-bold">
+                  Guardar
+                </button>
+              ` : `<span class="text-[10px] text-slate-500">Mão Livre</span>`}
+            </div>
+            ${rightHandItem ? `
+              <div>
+                <div class="text-[10px] font-display uppercase text-brass-400">${escapeHtml(rightHandItem.category)}</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">${escapeHtml(rightHandItem.name)}</div>
+                <div class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(rightHandItem.detail)}</div>
+              </div>
+            ` : `
+              <div class="py-3 text-center text-xs text-slate-500 italic">Nenhum item equipado na Mão Direita.</div>
+            `}
+          </div>
+
+          <!-- Slot Mão Esquerda -->
+          <div class="bg-obsidian-950/90 border ${leftHandItem ? 'border-astral-400/50' : 'border-slate-800'} rounded-xl p-4 flex flex-col justify-between space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="font-display font-bold text-xs uppercase tracking-wider text-astral-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-hand text-astral-400"></i> Mão Esquerda ${isTwoHanded ? '(Ocupada - Duas Mãos)' : ''}
+              </span>
+              ${(leftHandItem && !isTwoHanded) ? `
+                <button onclick="app.equipCharacterItem('${leftHandItem.source}', ${leftHandItem.index}, '')"
+                  class="px-2 py-0.5 rounded bg-obsidian-800 hover:bg-crimson-950 text-slate-300 hover:text-crimson-300 border border-slate-700 text-[10px] font-bold">
+                  Guardar
+                </button>
+              ` : `<span class="text-[10px] text-slate-500">${isTwoHanded ? 'Duas Mãos' : 'Mão Livre'}</span>`}
+            </div>
+            ${leftHandItem ? `
+              <div>
+                <div class="text-[10px] font-display uppercase text-astral-400">${escapeHtml(leftHandItem.category)}</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">${escapeHtml(leftHandItem.name)}</div>
+                <div class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(leftHandItem.detail)}</div>
+              </div>
+            ` : `
+              <div class="py-3 text-center text-xs text-slate-500 italic">Nenhum item equipado na Mão Esquerda.</div>
+            `}
+          </div>
+        </div>
+
+        <!-- Seleção Rápida para Equipar Armas e Artefatos do Inventário -->
+        <div class="pt-2 border-t border-slate-800/80 space-y-2">
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-300">
+            <i class="fa-solid fa-shield-halved text-brass-400 mr-1"></i> Equipar / Trocar Rapidamente do Seu Inventário:
+          </h4>
+          <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            ${(char.weapons || []).map((w, idx) => `
+              <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs">
+                <div class="min-w-0">
+                  <span class="px-1.5 py-0.5 rounded bg-crimson-950 text-crimson-300 border border-crimson-500/30 text-[9px] font-bold uppercase mr-1.5">Arma</span>
+                  <strong class="text-brass-200">${escapeHtml(w.name || 'Arma')}</strong>
+                  <span class="text-slate-400 ml-1 text-[11px]">(${escapeHtml(w.damage || '1d6')})</span>
+                </div>
+                <select onchange="app.equipCharacterItem('weapons', ${idx}, this.value)"
+                  class="sheet-input px-2.5 py-1 rounded text-xs font-bold ${w.equipSlot ? 'text-amber-300 border-amber-400/50' : 'text-slate-400'}">
+                  ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(w.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
+                </select>
+              </div>
+            `).join('')}
+
+            ${(char.equipment || []).map((eq, idx) => `
+              <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs">
+                <div class="min-w-0">
+                  <span class="px-1.5 py-0.5 rounded bg-eldritch-950 text-eldritch-300 border border-eldritch-500/30 text-[9px] font-bold uppercase mr-1.5">${escapeHtml(eq.category || 'Item')}</span>
+                  <strong class="text-amber-200">${escapeHtml(eq.name || 'Item')}</strong>
+                </div>
+                <select onchange="app.equipCharacterItem('equipment', ${idx}, this.value)"
+                  class="sheet-input px-2.5 py-1 rounded text-xs font-bold ${eq.equipSlot ? 'text-amber-300 border-amber-400/50' : 'text-slate-400'}">
+                  ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(eq.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
+                </select>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. VISÃO COMPARTILHADA DA MESA: O QUE CADA JOGADOR DA CAMPANHA ESTÁ USANDO -->
+      <div class="victorian-card rounded-xl p-4 sm:p-5 space-y-4">
+        <div class="border-b border-brass-400/20 pb-2.5">
+          <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-users-viewfinder text-brass-400"></i> Itens Equipados pelos Jogadores da Campanha
+          </h3>
+          <p class="text-xs text-slate-400">Veja em tempo real o que cada personagem da mesa está empunhando na Mão Direita, Mão Esquerda ou Duas Mãos</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          ${partyChars.map(pc => {
+            const pcEquipped = getCharacterEquippedItemsList(pc);
+            return `
+              <div class="bg-obsidian-950/90 border ${pc.id === char.id ? 'border-brass-400/60' : 'border-slate-800'} rounded-xl p-3.5 space-y-2.5">
+                <div class="flex items-center gap-2.5 border-b border-slate-800/80 pb-2">
+                  ${pc.avatarUrl ? `
+                    <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}" class="w-10 h-10 rounded-lg object-cover border border-brass-400/50 shrink-0" />
+                  ` : `
+                    <div class="w-10 h-10 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-sm shrink-0">
+                      <i class="fa-solid fa-user-secret"></i>
+                    </div>
+                  `}
+                  <div class="min-w-0">
+                    <div class="font-display font-bold text-sm text-brass-200 truncate">${escapeHtml(pc.name)}</div>
+                    <div class="text-[10px] text-slate-400 truncate">${escapeHtml(pc.pathway || '')} • ${pc.sequence === 'Humana' ? 'Humano' : `Seq. ${pc.sequence}`}</div>
+                  </div>
+                </div>
+
+                ${pcEquipped.length === 0 ? `
+                  <p class="text-xs text-slate-500 italic py-1">Mãos livres (nenhum item equipado no momento).</p>
+                ` : `
+                  <div class="space-y-1.5">
+                    ${pcEquipped.map(eqItem => `
+                      <div class="bg-obsidian-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                          <span class="px-1.5 py-0.5 rounded text-[9px] font-display font-bold uppercase border ${eqItem.slotMeta.badgeClass}">
+                            <i class="fa-solid ${eqItem.slotMeta.icon} mr-1"></i>${escapeHtml(eqItem.slotMeta.short)}
+                          </span>
+                          <div class="font-bold text-xs text-slate-100 mt-1 truncate">${escapeHtml(eqItem.name)}</div>
+                          <div class="text-[10px] text-slate-400 truncate">${escapeHtml(eqItem.detail)}</div>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function renderOraclePassivesSection(char, charactersMap, campaignState, currentUser, activeOracleTab = 'rolls', forceRebuild = false) {
   const btnRolls = document.getElementById('oracleTabBtn-rolls');
   const btnPassives = document.getElementById('oracleTabBtn-passives');
+  const btnEquipped = document.getElementById('oracleTabBtn-equipped');
   const panelRolls = document.getElementById('oracleRollsPanel');
   const panelPassives = document.getElementById('oraclePassivesPanel');
+  const panelEquipped = document.getElementById('oracleEquippedPanel');
   const badge = document.getElementById('activePassivesCountBadge');
   const miniBar = document.getElementById('oracleActivePassivesMiniBar');
+
+  // Garante que cada jogador só possa ativar/desativar passivas da sua própria ficha ativa!
+  const isGMUser = currentUser?.role === 'gm';
+  const canControlActiveChar = Boolean(
+    char && (
+      isGMUser ||
+      (currentUser && char.ownerUid && char.ownerUid === currentUser.uid) ||
+      (currentUser && char.ownerEmail && currentUser.email && char.ownerEmail.toLowerCase() === currentUser.email.toLowerCase())
+    )
+  );
 
   const activePassives = Array.isArray(char?.activePassives) ? char.activePassives : [];
   if (badge) {
     badge.textContent = String(activePassives.length);
     badge.className = activePassives.length > 0
-      ? 'px-1.5 py-0.2 rounded-full bg-emerald-400 text-obsidian-950 text-[9px] font-extrabold animate-pulse'
-      : 'px-1.5 py-0.2 rounded-full bg-obsidian-800 text-slate-400 text-[9px] font-bold';
+      ? 'px-1 py-0.2 rounded-full bg-emerald-400 text-obsidian-950 text-[9px] font-extrabold animate-pulse'
+      : 'px-1 py-0.2 rounded-full bg-obsidian-800 text-slate-400 text-[9px] font-bold';
   }
 
+  const activeBtnClass = 'py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 bg-brass-400 text-obsidian-950 shadow';
+  const inactiveBtnClass = 'py-1.5 px-1.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 text-slate-300 hover:text-brass-200';
+
   if (btnRolls && btnPassives && panelRolls && panelPassives) {
-    if (activeOracleTab === 'passives') {
-      btnPassives.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow';
-      btnRolls.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200';
-      panelRolls.classList.add('hidden');
-      panelPassives.classList.remove('hidden');
-    } else {
-      btnRolls.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow';
-      btnPassives.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200';
-      panelRolls.classList.remove('hidden');
-      panelPassives.classList.add('hidden');
+    btnRolls.className = activeOracleTab === 'rolls' ? activeBtnClass : inactiveBtnClass;
+    btnPassives.className = activeOracleTab === 'passives' ? activeBtnClass : inactiveBtnClass;
+    if (btnEquipped) {
+      btnEquipped.className = activeOracleTab === 'equipped' ? activeBtnClass : inactiveBtnClass;
+    }
+
+    panelRolls.classList.toggle('hidden', activeOracleTab !== 'rolls');
+    panelPassives.classList.toggle('hidden', activeOracleTab !== 'passives');
+    if (panelEquipped) {
+      panelEquipped.classList.toggle('hidden', activeOracleTab !== 'equipped');
     }
   }
 
-  // Mini-barra visível mesmo na aba de Dados para acompanhar passivas ligadas (ex: Visão Espiritual)
+  // Mini-barra visível mesmo na aba de Dados para acompanhar passivas ligadas da ficha atual
   if (miniBar) {
     if (activePassives.length === 0) {
       miniBar.innerHTML = '';
@@ -3057,25 +3313,91 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
     }
   }
 
+  // Renderiza o painel lateral de Itens Equipados da Mesa (#oracleEquippedPanel)
+  if (panelEquipped) {
+    const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
+    const campCharIds = new Set(activeCamp?.characterIds || []);
+    const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+
+    panelEquipped.innerHTML = `
+      <div class="space-y-3">
+        <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 flex items-center justify-between gap-2">
+          <div>
+            <h4 class="font-display font-bold text-xs uppercase text-brass-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-hands-holding-circle text-brass-400"></i> Itens Equipados na Mesa
+            </h4>
+            <p class="text-[10px] text-slate-400">O que cada jogador da campanha está empunhando</p>
+          </div>
+          <button onclick="app.switchSheetTab('equipped')" class="px-2.5 py-1 rounded bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-[10px] font-bold shrink-0">
+            Abrir Aba
+          </button>
+        </div>
+
+        <div class="space-y-2.5">
+          ${partyChars.map(pc => {
+            const pcEquipped = getCharacterEquippedItemsList(pc);
+            return `
+              <div class="bg-obsidian-950/85 border ${char && pc.id === char.id ? 'border-brass-400/60' : 'border-slate-800'} rounded-xl p-3 space-y-2">
+                <div class="flex items-center gap-2 border-b border-slate-800/80 pb-1.5">
+                  ${pc.avatarUrl ? `
+                    <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}" class="w-7 h-7 rounded-md object-cover border border-brass-400/40 shrink-0" />
+                  ` : `
+                    <div class="w-7 h-7 rounded-md bg-obsidian-900 border border-slate-700 flex items-center justify-center text-brass-300 text-[10px] shrink-0">
+                      <i class="fa-solid fa-user"></i>
+                    </div>
+                  `}
+                  <div class="min-w-0">
+                    <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(pc.name)}</div>
+                    <div class="text-[9px] text-slate-400 truncate">${escapeHtml(pc.pathway || '')}</div>
+                  </div>
+                </div>
+                ${pcEquipped.length === 0 ? `
+                  <p class="text-[11px] text-slate-500 italic">Mãos livres (nada equipado).</p>
+                ` : `
+                  <div class="space-y-1">
+                    ${pcEquipped.map(eqItem => `
+                      <div class="bg-obsidian-900/90 border border-slate-800 rounded-lg px-2 py-1.5">
+                        <div class="flex items-center justify-between gap-1">
+                          <span class="px-1.5 py-0.2 rounded text-[9px] font-display font-bold uppercase border ${eqItem.slotMeta.badgeClass}">
+                            <i class="fa-solid ${eqItem.slotMeta.icon} mr-1"></i>${escapeHtml(eqItem.slotMeta.short)}
+                          </span>
+                          <span class="text-[9px] text-slate-400 truncate">${escapeHtml(eqItem.category)}</span>
+                        </div>
+                        <div class="font-bold text-xs text-slate-100 mt-0.5 truncate">${escapeHtml(eqItem.name)}</div>
+                        <div class="text-[10px] text-slate-400 truncate">${escapeHtml(eqItem.detail)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   if (!panelPassives) return;
   if (!forceRebuild && isUserTypingInContainer(panelPassives)) return;
 
   if (!char) {
-    panelPassives.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Selecione ou crie uma ficha para gerenciar as Passivas Ativas.</div>`;
+    panelPassives.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Selecione ou crie sua ficha para gerenciar suas Passivas Ativas.</div>`;
     return;
   }
 
   const activeNames = new Set(activePassives.map(p => (p.name || '').toLowerCase()));
-  const charPowers = char.powers || [];
+  // Lista SOMENTE os poderes cadastrados na própria ficha ativa (nunca poderes de outros jogadores!)
+  const myOwnPowers = Array.isArray(char.powers) ? char.powers : [];
 
-  // Outros personagens da mesa com passivas ligadas
+  // Outros personagens da campanha com passivas ligadas (apenas visualização informativa, sem botões de ativar!)
   const otherActiveChars = Object.values(charactersMap || {}).filter(
     c => c.id !== char.id && Array.isArray(c.activePassives) && c.activePassives.length > 0
   );
 
   panelPassives.innerHTML = `
     <div class="space-y-3.5">
-      <!-- 1. PASSIVAS ATIVAS NO MOMENTO (FICHA ATUAL) -->
+      <!-- 1. PASSIVAS ATIVAS NO MOMENTO (EXCLUSIVO DA SUA FICHA ATIVA) -->
       <div class="bg-obsidian-950/90 border border-emerald-500/40 rounded-xl p-3 space-y-2.5">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2">
           <span class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
@@ -3086,7 +3408,7 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
 
         ${activePassives.length === 0 ? `
           <p class="text-xs text-slate-500 italic text-center py-2">
-            Nenhuma passiva ligada no momento. Ative a <strong>Visão Espiritual</strong> ou outro poder abaixo!
+            Nenhuma passiva ligada em <strong>${escapeHtml(char.name)}</strong>. Ative um dos poderes da sua ficha abaixo!
           </p>
         ` : `
           <div class="space-y-2">
@@ -3100,19 +3422,21 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
                     </div>
                     ${ap.description ? `<p class="text-[11px] text-slate-300 mt-0.5 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
                   </div>
-                  <button onclick="app.deactivatePassive(${idx})" title="Desativar esta passiva"
-                    class="px-2 py-0.5 rounded bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[10px] font-bold shrink-0 transition-all">
-                    Desativar
-                  </button>
+                  ${canControlActiveChar ? `
+                    <button onclick="app.deactivatePassive(${idx})" title="Desativar esta passiva"
+                      class="px-2 py-0.5 rounded bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[10px] font-bold shrink-0 transition-all">
+                      Desativar
+                    </button>
+                  ` : ''}
                 </div>
                 <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
                   <span class="text-slate-400">Custo: <strong class="text-astral-300">${ap.cost ?? 0} PE</strong></span>
-                  ${(ap.cost ?? 0) > 0 ? `
+                  ${(canControlActiveChar && (ap.cost ?? 0) > 0) ? `
                     <button onclick="app.spendPassiveMaintenancePE(${idx})"
                       class="px-2 py-0.5 rounded bg-astral-900/70 hover:bg-astral-500 text-astral-200 hover:text-obsidian-950 border border-astral-500/40 font-bold transition-all">
                       <i class="fa-solid fa-star-of-life mr-1"></i>Manter (-${ap.cost} PE)
                     </button>
-                  ` : `<span class="text-emerald-400 font-semibold">Sustentação Livre</span>`}
+                  ` : `<span class="text-emerald-400 font-semibold">Ativa</span>`}
                 </div>
               </div>
             `).join('')}
@@ -3120,70 +3444,60 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
         `}
       </div>
 
-      <!-- 2. ATIVAÇÃO RÁPIDA (VISÃO ESPIRITUAL & PODERES DA FICHA) -->
-      <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2.5">
-        <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-wand-magic-sparkles text-brass-400"></i> Alternar Passivas & Visão Espiritual (1 Clique)
-        </h4>
-        <div class="space-y-1.5">
-          ${PASSIVE_ABILITY_PRESETS.map(preset => {
-            const isOn = activeNames.has(preset.name.toLowerCase());
-            return `
-              <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
-                <div class="min-w-0">
-                  <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-slate-200'} truncate">
-                    <i class="fa-solid ${preset.icon} mr-1 text-brass-400"></i>${escapeHtml(preset.name)}
+      ${canControlActiveChar ? `
+        <!-- 2. PODERES DA SUA PRÓPRIA FICHA (SOMENTE PODERES DE ${escapeHtml(char.name)}) -->
+        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2.5">
+          <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-hand-sparkles text-eldritch-400"></i> Poderes da Ficha de ${escapeHtml(char.name)}
+          </h4>
+          ${myOwnPowers.length === 0 ? `
+            <p class="text-[11px] text-slate-500 italic">
+              Nenhum poder cadastrado na aba "Poderes Beyonder" desta ficha. Cadastre seus poderes lá ou ative uma passiva abaixo.
+            </p>
+          ` : `
+            <div class="space-y-1.5">
+              ${myOwnPowers.map((pw, idx) => {
+                const isOn = activeNames.has((pw.name || '').toLowerCase());
+                return `
+                  <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-eldritch-200'} truncate">
+                        <i class="fa-solid fa-hand-sparkles mr-1 text-eldritch-400"></i>${escapeHtml(pw.name || 'Poder')}
+                      </div>
+                      <div class="text-[10px] text-slate-400 truncate">${escapeHtml(pw.sequence || 'Poder da Ficha')} • ${pw.cost ?? 0} PE</div>
+                    </div>
+                    <button onclick="app.togglePowerAsActivePassive(${idx})"
+                      class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-eldritch-500 text-eldritch-200 hover:text-white border border-eldritch-400/35'}">
+                      ${isOn ? 'Desativar' : 'Ativar'}
+                    </button>
                   </div>
-                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(preset.description)}</div>
-                </div>
-                <button onclick="app.togglePresetPassive('${preset.id}')"
-                  class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/35'}">
-                  ${isOn ? 'Ativa' : 'Ativar'}
-                </button>
-              </div>
-            `;
-          }).join('')}
-
-          ${charPowers.map((pw, idx) => {
-            const isOn = activeNames.has((pw.name || '').toLowerCase());
-            return `
-              <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
-                <div class="min-w-0">
-                  <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-eldritch-200'} truncate">
-                    <i class="fa-solid fa-hand-sparkles mr-1 text-eldritch-400"></i>${escapeHtml(pw.name || 'Poder')}
-                  </div>
-                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(pw.sequence || 'Poder da Ficha')} • ${pw.cost ?? 0} PE</div>
-                </div>
-                <button onclick="app.togglePowerAsActivePassive(${idx})"
-                  class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-eldritch-500 text-eldritch-200 hover:text-white border border-eldritch-400/35'}">
-                  ${isOn ? 'Ativa' : 'Ativar'}
-                </button>
-              </div>
-            `;
-          }).join('')}
+                `;
+              }).join('')}
+            </div>
+          `}
         </div>
-      </div>
 
-      <!-- 3. ADICIONAR NOVA PASSIVA PERSONALIZADA -->
-      <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
-        <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-slate-300">
-          <i class="fa-solid fa-plus-circle text-brass-400 mr-1"></i> Ativar Outra Passiva / Efeito Contínuo
-        </h4>
-        <div class="grid grid-cols-12 gap-1.5">
-          <input id="customPassiveNameInput" type="text" placeholder="Nome (Ex: Corpo de Fios)" class="sheet-input col-span-8 px-2.5 py-1 rounded text-xs font-bold" />
-          <input id="customPassiveCostInput" type="number" min="0" value="1" title="Custo de PE" placeholder="PE" class="sheet-input col-span-4 px-2 py-1 rounded text-xs text-center text-astral-300 font-bold" />
+        <!-- 3. ATIVAR PASSIVA PERSONALIZADA NA SUA FICHA -->
+        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
+          <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-slate-300">
+            <i class="fa-solid fa-plus-circle text-brass-400 mr-1"></i> Ativar Passiva / Visão Espiritual
+          </h4>
+          <div class="grid grid-cols-12 gap-1.5">
+            <input id="customPassiveNameInput" type="text" placeholder="Ex: Visão Espiritual" class="sheet-input col-span-8 px-2.5 py-1 rounded text-xs font-bold" />
+            <input id="customPassiveCostInput" type="number" min="0" value="1" title="Custo de PE" placeholder="PE" class="sheet-input col-span-4 px-2 py-1 rounded text-xs text-center text-astral-300 font-bold" />
+          </div>
+          <input id="customPassiveDescInput" type="text" placeholder="Efeito ativo para acompanhar..." class="sheet-input w-full px-2.5 py-1 rounded text-xs" />
+          <button onclick="app.addCustomActivePassive()" class="w-full py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider shadow transition-all">
+            <i class="fa-solid fa-eye mr-1"></i> Ativar na Minha Ficha
+          </button>
         </div>
-        <input id="customPassiveDescInput" type="text" placeholder="Efeito ativo para acompanhar..." class="sheet-input w-full px-2.5 py-1 rounded text-xs" />
-        <button onclick="app.addCustomActivePassive()" class="w-full py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider shadow transition-all">
-          <i class="fa-solid fa-eye mr-1"></i> Ativar & Acompanhar no Oráculo
-        </button>
-      </div>
+      ` : ''}
 
-      <!-- 4. OUTROS JOGADORES COM PASSIVAS ATIVAS NA MESA -->
+      <!-- 4. OUTROS JOGADORES COM PASSIVAS ATIVAS NA MESA (SOMENTE LEITURA) -->
       ${otherActiveChars.length > 0 ? `
         <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
           <h4 class="font-display font-bold text-[10px] uppercase tracking-wider text-slate-400">
-            <i class="fa-solid fa-users-rays text-brass-400 mr-1"></i> Passivas Ativas na Mesa (Campanha)
+            <i class="fa-solid fa-users-rays text-brass-400 mr-1"></i> Passivas Ativas de Outros Jogadores (Visualização)
           </h4>
           <div class="space-y-1.5">
             ${otherActiveChars.map(oc => `
