@@ -37,6 +37,8 @@ export function createDefaultCharacter(overrides = {}) {
     bonusDie: overrides.bonusDie ?? '1d4',
     autoBonusDie: overrides.autoBonusDie ?? false,
     corruptionLevel: overrides.corruptionLevel ?? 5,
+    avatarUrl: overrides.avatarUrl || '',
+    contributionPoints: overrides.contributionPoints ?? 80,
     currencyGold: overrides.currencyGold ?? 12,
     currencySoli: overrides.currencySoli ?? 8,
     currencyPenny: overrides.currencyPenny ?? 4,
@@ -141,6 +143,26 @@ export function createDefaultCharacter(overrides = {}) {
         type: 'Mental / Espiritual',
         severity: 'Leve',
         description: 'Ao usar a Visão Espiritual por muito tempo ou avançar de sequência, escuta murmúrios indescritíveis e vê sombras distorcidas.'
+      }
+    ],
+    resistances: overrides.resistances || [
+      {
+        id: 'res1',
+        name: 'Intrusão Espiritual & Adivinhação Maligna',
+        degree: 'Resistência Elevada (50% Dano)',
+        value: '+3 em Vontade / Anti-Rastreio',
+        source: 'Bênção do Nevoeiro Cinza',
+        description: 'A aura do Nevoeiro Cinza bloqueia tentativas de rastreamento místico e reduz efeitos mentais de sussurros externos.'
+      }
+    ],
+    weaknesses: overrides.weaknesses || [
+      {
+        id: 'wk1',
+        name: 'Drenagem Térmica do Artefato 3-0782',
+        severity: 'Penalidade em Testes',
+        penalty: '-2 em CON após 15 min de uso',
+        source: 'Efeito Negativo de Artefato',
+        description: 'Portar o Emblema Sagrado Mutado sem isolamento espiritual reduz gradualmente a temperatura corporal e a agilidade.'
       }
     ],
     actingNotes: overrides.actingNotes || '• Você apenas atua no papel da poção; o nome da poção é a chave.\n• Um Vidente respeita o destino, mas nunca se submete passivamente a ele.\n• Um Palhaço sorri diante do absurdo do destino, mantendo o controle absoluto do corpo e das expressões.',

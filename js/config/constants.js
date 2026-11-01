@@ -127,6 +127,129 @@ export const DEFAULT_USER_THEME = {
   customBgImage: ''
 };
 
+export const STORE_ITEM_CATEGORIES = [
+  { key: 'all', label: 'Todos os Itens', icon: 'fa-layer-group' },
+  { key: 'armas', label: 'Armas & Munições', icon: 'fa-gun' },
+  { key: 'pocoes', label: 'Poções & Fórmulas', icon: 'fa-flask-vial' },
+  { key: 'ingredientes', label: 'Ingredientes Beyonder', icon: 'fa-leaf' },
+  { key: 'artefatos', label: 'Artefatos Selados', icon: 'fa-gem' },
+  { key: 'amuletos', label: 'Amuletos & Rituais', icon: 'fa-star-and-crescent' },
+  { key: 'equipamentos', label: 'Equipamentos & Geral', icon: 'fa-toolbox' }
+];
+
+export const DEFAULT_STORE_ITEMS = [
+  {
+    id: 'st_item_1',
+    name: 'Balas Purificadoras do Sol (Lote c/ 6)',
+    category: 'armas',
+    priceGold: 6,
+    priceContrib: 25,
+    stock: -1,
+    grade: 'Seq. 9 • Combate',
+    description: 'Munição gravada com símbolos sagrados do Sol Eterno. Causa +1d6 de dano radiante extra contra mortos-vivos e espectros.'
+  },
+  {
+    id: 'st_item_2',
+    name: 'Amuleto do Sono Noturno (Réquiem)',
+    category: 'amuletos',
+    priceGold: 8,
+    priceContrib: 35,
+    stock: 5,
+    grade: 'Seq. 8 • Domínio da Meia-Noite',
+    description: 'Amuleto de prata ativado em Hermes Antigo. Adormece ou entorpece um alvo em até 15m (Teste de Vontade CD 14).'
+  },
+  {
+    id: 'st_item_3',
+    name: 'Fórmula da Poção: Palhaço (Seq. 8 - Vidente)',
+    category: 'pocoes',
+    priceGold: 150,
+    priceContrib: 250,
+    stock: 1,
+    grade: 'Sequência 8',
+    description: 'Fórmula completa contendo a lista de ingredientes principais (Cristal de Chifre de Bode Cinzento e Rosa com Rosto Humano).'
+  },
+  {
+    id: 'st_item_4',
+    name: 'Flor do Sono Noturno & Pó de Erva-Santa',
+    category: 'ingredientes',
+    priceGold: 12,
+    priceContrib: 40,
+    stock: 8,
+    grade: 'Ingrediente Espiritual',
+    description: 'Materiais essenciais para rituais de três velas, óleos essenciais e confecção de amuletos serenos.'
+  },
+  {
+    id: 'st_item_5',
+    name: 'Artefato Selado 3-0411 (Espelho de Prata Sombrio)',
+    category: 'artefatos',
+    priceGold: 220,
+    priceContrib: 400,
+    stock: 1,
+    grade: 'Artefato Grau 3',
+    description: 'Permite rastrear alvos através de superfícies reflexivas. Efeito Negativo: Sussurra segredos perturbadores à meia-noite (-2 SAN por uso).'
+  },
+  {
+    id: 'st_item_6',
+    name: 'Kit de Investigação Forense & Pêndulo de Topázio',
+    category: 'equipamentos',
+    priceGold: 10,
+    priceContrib: 30,
+    stock: -1,
+    grade: 'Utilitário',
+    description: 'Concede +1 em testes de Investigação mundana e permite realizar radiestesia básica.'
+  }
+];
+
+export const DEFAULT_CONTRIBUTION_TASKS = [
+  {
+    id: 'ct_task_1',
+    title: 'Relatório Oficial de Caso Oculto Resolvido',
+    category: 'Missão / Relatório',
+    rewardPoints: 50,
+    rewardGold: 5,
+    description: 'Entregar ao comando da organização ou ao Mestre o relatório detalhado de uma investigação concluída.'
+  },
+  {
+    id: 'ct_task_2',
+    title: 'Entrega de Característica Beyonder ou Artefato',
+    category: 'Espólio Místico',
+    rewardPoints: 120,
+    rewardGold: 0,
+    description: 'Contribuir com uma Característica Beyonder recuperada em combate ou artefato instável para o cofre da campanha.'
+  },
+  {
+    id: 'ct_task_3',
+    title: 'Plantão de Vigília no Portão Chanis / Patrulha',
+    category: 'Serviço Semanal',
+    rewardPoints: 30,
+    rewardGold: 3,
+    description: 'Cumprir turno extra de guarda ou vigilância durante os dias entre-missões.'
+  },
+  {
+    id: 'ct_task_4',
+    title: 'Doação de Fundos ou Ingredientes Raros',
+    category: 'Doação',
+    rewardPoints: 25,
+    rewardGold: 0,
+    description: 'Contribuir com recursos financeiros ou materiais ritualísticos para o grupo.'
+  }
+];
+
+export const RESISTANCE_DEGREES = [
+  'Resistência Parcial',
+  'Resistência Elevada (50% Dano)',
+  'Imunidade Total',
+  'Absorção / Bônus de Defesa'
+];
+
+export const WEAKNESS_SEVERITIES = [
+  'Vulnerabilidade (+50% Dano)',
+  'Dano Dobrado (2x)',
+  'Penalidade em Testes',
+  'Gatilho de Perda de Controle',
+  'Restrição / Tabu Místico'
+];
+
 export const DEFAULT_CAMPAIGN_STATE = {
   activeCampaignId: 'camp_tarot_1',
   campaigns: [
@@ -138,6 +261,9 @@ export const DEFAULT_CAMPAIGN_STATE = {
       characterIds: ['sample_klein_moretti', 'sample_audrey_hall', 'sample_alger_wilson'],
       restrictCombatAndDice: true,
       weekHistory: [],
+      storeItems: JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS)),
+      contributionTasks: JSON.parse(JSON.stringify(DEFAULT_CONTRIBUTION_TASKS)),
+      contributionLogs: [],
       createdAt: Date.now()
     }
   ],
@@ -311,6 +437,22 @@ export function createCollectionItemTemplate(collectionKey, character) {
       name: 'Nova Mutação ou Sintoma',
       type: 'Física / Corporal',
       severity: 'Moderada',
+      description: ''
+    },
+    resistances: {
+      id: uid,
+      name: 'Nova Resistência / Imunidade',
+      degree: 'Resistência Elevada (50% Dano)',
+      value: 'Reduz 50% / +2 Defesa',
+      source: 'Poção / Sequência',
+      description: ''
+    },
+    weaknesses: {
+      id: uid,
+      name: 'Nova Fraqueza / Vulnerabilidade',
+      severity: 'Vulnerabilidade (+50% Dano)',
+      penalty: '-2 em Testes / +50% Dano',
+      source: 'Efeito Negativo de Artefato',
       description: ''
     }
   };

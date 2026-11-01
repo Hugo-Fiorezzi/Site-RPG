@@ -37,6 +37,8 @@ import {
   renderEquipmentList,
   renderMysticList,
   renderMutationsList,
+  renderResistancesAndWeaknesses,
+  renderCampaignStoreTab,
   renderDiceLogs
 } from './ui/renderers.js';
 
@@ -56,6 +58,8 @@ class BeyonderGrimoireController {
     this.diceLogs = [];
     this.saveTimeout = null;
     this.seqProgTargetCharId = null;
+    this.deleteTargetCharId = null;
+    this.storeUIState = { subTab: 'items', categoryFilter: 'all', searchText: '' };
 
     this.currentUser = null;
     this.authModalTab = 'login'; // 'login' | 'register'
@@ -166,7 +170,8 @@ class BeyonderGrimoireController {
         this.skillSortMode,
         this.actionFilterMode,
         this.campaignState,
-        this.currentUser
+        this.currentUser,
+        this.storeUIState
       );
     }
     renderDiceLogs(this.diceLogs, this.campaignState, this.activeCharacterId, this.viewMode, this.currentUser);
@@ -1242,7 +1247,7 @@ class BeyonderGrimoireController {
       this.combatState.round = 1;
       this.combatState.activeTurnIndex = 0;
       playCombatAlarmSound(true);
-      showToast('COMBATE INICIADO! O tema Macabro do Abismo tomou conta da mesa!', 'error');
+      showToast('COMBATE INICIADO! A mesa entrou em situação de combate!', 'error');
     } else {
       playCombatAlarmSound(false);
       showToast('Combate encerrado! O tema personalizado de cada jogador foi restaurado.');
@@ -1526,7 +1531,7 @@ class BeyonderGrimoireController {
     if (!char.attributes) char.attributes = {};
     if (!char.attributes[attrKey]) char.attributes[attrKey] = { value: 10, bonus: 0 };
     char.attributes[attrKey][field] = val;
-    renderCharacterSheet(char, this.activeSheetTab, this.skillSortMode, this.actionFilterMode, this.campaignState, this.currentUser);
+    renderCharacterSheet(char, this.activeSheetTab, this.skillSortMode, this.actionFilterMode, this.campaignState, this.currentUser, this.storeUIState);
     this.scheduleAutoSave();
   }
 
@@ -1583,7 +1588,9 @@ class BeyonderGrimoireController {
       equipment: () => renderEquipmentList(char),
       powers: () => renderMysticList(char, 'powers'),
       spells: () => renderMysticList(char, 'spells'),
-      mutations: () => renderMutationsList(char)
+      mutations: () => renderMutationsList(char),
+      resistances: () => renderResistancesAndWeaknesses(char),
+      weaknesses: () => renderResistancesAndWeaknesses(char)
     };
     if (rendererMap[collectionKey]) rendererMap[collectionKey]();
     renderPlayerActionEconomyAndFilter(char, this.actionFilterMode);
@@ -1951,6 +1958,8 @@ class BeyonderGrimoireController {
       powers: [],
       spells: [],
       mutations: [],
+      resistances: [],
+      weaknesses: [],
       weeklyDowntime: createDefaultWeeklyDowntime(activeCamp?.currentWeek || 1)
     });
 
@@ -1993,23 +2002,35 @@ class BeyonderGrimoireController {
     showToast('Fichas de exemplo geradas para a mesa!');
   }
 
-  openDeleteCharacterModal() {
-    const char = this.getActiveChar();
-    if (!char) return;
-    document.getElementById('deleteCharNameSpan').textContent = char.name;
+  promptDeleteCharacterById(charId) {
+    const target = this.charactersMap[charId];
+    if (!target) return;
+    this.deleteTargetCharId = target.id;
+    document.getElementById('deleteCharNameSpan').textContent = target.name;
     const modal = document.getElementById('deleteCharModal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
 
+  openDeleteCharacterModal() {
+    const char = this.getActiveChar();
+    if (!char) {
+      showToast('Nenhuma ficha selecionada para excluir.', 'error');
+      return;
+    }
+    this.promptDeleteCharacterById(char.id);
+  }
+
   closeDeleteCharacterModal() {
+    this.deleteTargetCharId = null;
     const modal = document.getElementById('deleteCharModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
   }
 
   async confirmDeleteCharacter() {
-    const char = this.getActiveChar();
+    const targetId = this.deleteTargetCharId || this.activeCharacterId;
+    const char = targetId ? this.charactersMap[targetId] : this.getActiveChar();
     if (!char) return;
     const deletedId = char.id;
     const deletedName = char.name;
@@ -2022,12 +2043,355 @@ class BeyonderGrimoireController {
         c.characterIds = c.characterIds.filter(id => id !== deletedId);
       }
     });
-    await this.storage.saveCampaignState(this.campaignState);
+    if (this.isGMUser()) {
+      await this.storage.saveCampaignState(this.campaignState);
+    }
 
+    this.deleteTargetCharId = null;
     this.ensureValidActiveCharacterForUser();
     this.closeDeleteCharacterModal();
     this.renderAll();
-    showToast(`Ficha de ${deletedName} excluída.`);
+    showToast(`Ficha de ${deletedName} excluída permanentemente.`);
+  }
+
+  // --- UPLOAD DE IMAGEM / RETRATO DO PERSONAGEM ---
+  triggerCharacterAvatarUpload() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    document.getElementById('charAvatarFileInput')?.click();
+  }
+
+  handleCharacterAvatarUpload(event) {
+    const file = event?.target?.files?.[0];
+    const char = this.getActiveChar();
+    if (!file || !char) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Selecione um arquivo de imagem válido (PNG, JPG, WEBP).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        // Redimensiona e comprime via canvas para manter leve no banco Cloud (Firestore) e localStorage
+        const maxDim = 340;
+        let w = img.width;
+        let h = img.height;
+        if (w > h && w > maxDim) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else if (h >= w && h > maxDim) {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+        char.avatarUrl = dataUrl;
+        this.renderAll();
+        await this.storage.saveCharacter(char, this.charactersMap);
+        showToast(`Foto de ${char.name} atualizada com sucesso!`, 'crit');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  async updateCharacterAvatarUrl(url) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    char.avatarUrl = String(url || '').trim();
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    if (char.avatarUrl) {
+      showToast('URL da imagem do personagem salva!');
+    }
+  }
+
+  async clearCharacterAvatar() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    char.avatarUrl = '';
+    const urlInput = document.getElementById('charAvatarUrlInput');
+    if (urlInput) urlInput.value = '';
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast('Imagem do personagem removida.');
+  }
+
+  // --- LOJA DA CAMPANHA & ABA DE CONTRIBUIÇÕES ---
+  setStoreSubTab(subTab) {
+    this.storeUIState.subTab = subTab;
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+  }
+
+  setStoreCategoryFilter(catKey) {
+    this.storeUIState.categoryFilter = catKey;
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+  }
+
+  setStoreSearchText(txt) {
+    this.storeUIState.searchText = txt;
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+  }
+
+  async gmAddStoreItem() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode personalizar os itens da loja.', 'error');
+      return;
+    }
+    const camp = this.getActiveCampaign();
+    if (!camp) return;
+    if (!Array.isArray(camp.storeItems)) camp.storeItems = [];
+
+    const name = document.getElementById('newStoreItemName')?.value.trim();
+    if (!name) {
+      showToast('Informe o nome do item para adicionar à loja.', 'error');
+      return;
+    }
+    const category = document.getElementById('newStoreItemCategory')?.value || 'equipamentos';
+    const priceGold = Math.max(0, Number(document.getElementById('newStoreItemGold')?.value) || 0);
+    const priceContrib = Math.max(0, Number(document.getElementById('newStoreItemContrib')?.value) || 0);
+    const stock = Number(document.getElementById('newStoreItemStock')?.value ?? -1);
+    const grade = document.getElementById('newStoreItemGrade')?.value.trim() || 'Item da Campanha';
+    const description = document.getElementById('newStoreItemDesc')?.value.trim() || '';
+
+    camp.storeItems.unshift({
+      id: `st_${Date.now()}`,
+      name,
+      category,
+      priceGold,
+      priceContrib,
+      stock,
+      grade,
+      description
+    });
+
+    await this.storage.saveCampaignState(this.campaignState);
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+    showToast(`"${name}" adicionado à Loja da Campanha!`, 'crit');
+  }
+
+  async gmUpdateStoreItem(itemId, field, value) {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    const item = (camp?.storeItems || []).find(i => i.id === itemId);
+    if (!item) return;
+    item[field] = value;
+    await this.storage.saveCampaignState(this.campaignState);
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+  }
+
+  async gmRemoveStoreItem(itemId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    if (!camp || !Array.isArray(camp.storeItems)) return;
+    camp.storeItems = camp.storeItems.filter(i => i.id !== itemId);
+    await this.storage.saveCampaignState(this.campaignState);
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+    showToast('Item retirado da loja.');
+  }
+
+  async buyCampaignStoreItem(itemId, paymentType = 'gold') {
+    const char = this.getActiveChar();
+    const camp = this.getActiveCampaign();
+    if (!char || !camp) return;
+
+    const item = (camp.storeItems || []).find(i => i.id === itemId);
+    if (!item) return;
+    if (item.stock === 0) {
+      showToast('Este item está esgotado na loja.', 'error');
+      return;
+    }
+
+    if (paymentType === 'contrib') {
+      const costPts = Number(item.priceContrib) || 0;
+      const curPts = Number(char.contributionPoints) || 0;
+      if (curPts < costPts) {
+        showToast(`Pontos de Contribuição insuficientes (${curPts}/${costPts} pts).`, 'error');
+        return;
+      }
+      char.contributionPoints = curPts - costPts;
+    } else {
+      const costGold = Number(item.priceGold) || 0;
+      const curGold = Number(char.currencyGold) || 0;
+      if (curGold < costGold) {
+        showToast(`Libras de Ouro insuficientes (${curGold}/${costGold} £).`, 'error');
+        return;
+      }
+      char.currencyGold = curGold - costGold;
+    }
+
+    if (typeof item.stock === 'number' && item.stock > 0) {
+      item.stock -= 1;
+    }
+
+    // Adiciona automaticamente ao inventário da ficha do personagem
+    const catToEqMap = {
+      armas: 'Instrumento Místico',
+      pocoes: 'Amuleto / Ingrediente',
+      ingredientes: 'Amuleto / Ingrediente',
+      artefatos: 'Artefato Selado Grau 3',
+      amuletos: 'Amuleto / Ingrediente',
+      equipamentos: 'Equipamento Geral'
+    };
+
+    if (!Array.isArray(char.equipment)) char.equipment = [];
+    char.equipment.push({
+      id: `eq_${Date.now()}`,
+      name: item.name,
+      category: catToEqMap[item.category] || 'Equipamento Geral',
+      quantity: 1,
+      description: `${item.grade ? `[${item.grade}] ` : ''}${item.description || 'Adquirido na Loja da Campanha.'}`
+    });
+
+    if (!Array.isArray(camp.contributionLogs)) camp.contributionLogs = [];
+    camp.contributionLogs.unshift({
+      id: `clog_${Date.now()}`,
+      charName: char.name,
+      actionText: `adquiriu "${item.name}" na Loja`,
+      deltaText: paymentType === 'contrib' ? `-${item.priceContrib} pts` : `-${item.priceGold} £`,
+      dateStr: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    });
+
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    // Persiste o log e estoque da loja na campanha
+    try {
+      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
+    } catch (_) {}
+    if (this.isGMUser()) {
+      await this.storage.saveCampaignState(this.campaignState);
+    }
+
+    showToast(`${char.name} adquiriu "${item.name}"! O item foi adicionado à ficha.`, 'crit');
+  }
+
+  async submitCustomContribution() {
+    const char = this.getActiveChar();
+    const camp = this.getActiveCampaign();
+    if (!char || !camp) return;
+
+    const desc = document.getElementById('customContribDescInput')?.value.trim();
+    const donateGold = Math.max(0, Number(document.getElementById('customContribDonateGold')?.value) || 0);
+    const ptsGain = Math.max(1, Number(document.getElementById('customContribPointsGain')?.value) || 0);
+
+    if (!desc) {
+      showToast('Descreva a contribuição ou entrega realizada.', 'error');
+      return;
+    }
+
+    if (donateGold > 0) {
+      if ((Number(char.currencyGold) || 0) < donateGold) {
+        showToast('Você não possui essa quantidade de Libras para doar.', 'error');
+        return;
+      }
+      char.currencyGold = (Number(char.currencyGold) || 0) - donateGold;
+    }
+
+    char.contributionPoints = (Number(char.contributionPoints) || 0) + ptsGain;
+
+    if (!Array.isArray(camp.contributionLogs)) camp.contributionLogs = [];
+    camp.contributionLogs.unshift({
+      id: `clog_${Date.now()}`,
+      charName: char.name,
+      actionText: `contribuiu: ${desc}${donateGold > 0 ? ` (Doou ${donateGold}£)` : ''}`,
+      deltaText: `+${ptsGain} pts`,
+      dateStr: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    });
+
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    try {
+      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
+    } catch (_) {}
+    if (this.isGMUser()) {
+      await this.storage.saveCampaignState(this.campaignState);
+    }
+
+    showToast(`Contribuição registrada! +${ptsGain} Pontos de Contribuição para ${char.name}.`, 'crit');
+  }
+
+  async gmAddContributionTask() {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    if (!camp) return;
+    if (!Array.isArray(camp.contributionTasks)) camp.contributionTasks = [];
+
+    const title = document.getElementById('newContribTaskTitle')?.value.trim();
+    const description = document.getElementById('newContribTaskDesc')?.value.trim() || '';
+    const rewardPoints = Math.max(1, Number(document.getElementById('newContribTaskPts')?.value) || 25);
+
+    if (!title) {
+      showToast('Informe o título da tarefa de contribuição.', 'error');
+      return;
+    }
+
+    camp.contributionTasks.unshift({
+      id: `ct_${Date.now()}`,
+      title,
+      category: 'Missão da Campanha',
+      rewardPoints,
+      rewardGold: 0,
+      description
+    });
+
+    await this.storage.saveCampaignState(this.campaignState);
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+    showToast(`Tarefa "${title}" adicionada à aba de Contribuições!`, 'crit');
+  }
+
+  async gmRemoveContributionTask(taskId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    if (!camp || !Array.isArray(camp.contributionTasks)) return;
+    camp.contributionTasks = camp.contributionTasks.filter(t => t.id !== taskId);
+    await this.storage.saveCampaignState(this.campaignState);
+    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
+    showToast('Tarefa de contribuição removida.');
+  }
+
+  async completeContributionTask(taskId) {
+    const char = this.getActiveChar();
+    const camp = this.getActiveCampaign();
+    if (!char || !camp) return;
+
+    const task = (camp.contributionTasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    const pts = Number(task.rewardPoints) || 0;
+    const gold = Number(task.rewardGold) || 0;
+    char.contributionPoints = (Number(char.contributionPoints) || 0) + pts;
+    if (gold > 0) {
+      char.currencyGold = (Number(char.currencyGold) || 0) + gold;
+    }
+
+    if (!Array.isArray(camp.contributionLogs)) camp.contributionLogs = [];
+    camp.contributionLogs.unshift({
+      id: `clog_${Date.now()}`,
+      charName: char.name,
+      actionText: `cumpriu "${task.title}"`,
+      deltaText: `+${pts} pts${gold > 0 ? ` / +${gold}£` : ''}`,
+      dateStr: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    });
+
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    try {
+      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
+    } catch (_) {}
+    if (this.isGMUser()) {
+      await this.storage.saveCampaignState(this.campaignState);
+    }
+
+    showToast(`${char.name} recebeu +${pts} Pontos de Contribuição!`, 'crit');
   }
 }
 

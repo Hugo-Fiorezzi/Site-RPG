@@ -78,6 +78,11 @@
           <span class="hidden sm:inline">Nova Ficha</span>
         </button>
 
+        <button onclick="app.openDeleteCharacterModal()" title="Excluir a ficha atualmente selecionada" class="px-3 py-2 rounded-lg bg-crimson-950/90 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/50 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition-all">
+          <i class="fa-solid fa-trash-can"></i>
+          <span class="hidden sm:inline">Excluir Ficha</span>
+        </button>
+
         <!-- Personalização de Tema, Cores e Fundo do Usuário -->
         <button onclick="app.openThemeCustomizerModal()" title="Personalizar Cores, Tema e Fundo" class="px-2.5 py-2 rounded-lg bg-obsidian-800 border border-brass-400/35 text-brass-200 hover:bg-brass-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all">
           <i class="fa-solid fa-palette text-brass-400"></i>
@@ -179,7 +184,7 @@
               Mesa do Mestre — Controle de Todas as Fichas, Campanhas & Semanas
             </h2>
             <p class="text-xs sm:text-sm text-slate-400 mt-1">
-              Visualize todas as fichas criadas pelos jogadores, escale-as em campanhas, inicie o Combate Macabro, avalie a rotina semanal e passe a semana.
+              Visualize todas as fichas criadas pelos jogadores, escale-as em campanhas, inicie o Combate, avalie a rotina semanal e passe a semana.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2.5">
@@ -261,9 +266,38 @@
         </div>
 
         <div id="characterSheetMainContent" class="space-y-5">
-          <!-- 1. CABEÇALHO DO PERSONAGEM -->
+          <!-- 1. CABEÇALHO DO PERSONAGEM (COM UPLOAD DE RETRATO E BOTÃO DE EXCLUIR FICHA EXPOSTO) -->
           <div class="victorian-card-gold rounded-xl p-4 sm:p-6">
-            <div class="flex flex-col lg:flex-row gap-5 justify-between">
+            <div class="flex flex-col lg:flex-row gap-5 justify-between items-stretch">
+
+              <!-- Retrato / Upload de Imagem do Personagem -->
+              <div class="w-full sm:w-44 shrink-0 flex flex-col items-center justify-between gap-2 bg-obsidian-950/80 p-3 rounded-xl border border-brass-400/35">
+                <div onclick="app.triggerCharacterAvatarUpload()" title="Clique para enviar uma imagem do personagem" class="w-32 h-36 sm:w-36 sm:h-40 rounded-xl overflow-hidden border-2 border-brass-400/60 bg-obsidian-900 relative cursor-pointer group shadow-xl flex items-center justify-center">
+                  <img id="charAvatarPreviewImg" src="" alt="Retrato do Personagem" class="hidden w-full h-full object-cover" />
+                  <div id="charAvatarPlaceholder" class="flex flex-col items-center justify-center text-slate-500 gap-1.5 p-2 text-center">
+                    <i class="fa-solid fa-user-astronaut text-3xl text-brass-400/60 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-[10px] font-display uppercase tracking-wider text-slate-400">Foto do Personagem</span>
+                  </div>
+                  <div class="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-brass-200 text-[10px] font-display font-bold uppercase gap-1">
+                    <i class="fa-solid fa-camera text-base text-brass-400"></i>
+                    <span>Trocar Foto</span>
+                  </div>
+                </div>
+
+                <input id="charAvatarFileInput" type="file" accept="image/*" class="hidden" onchange="app.handleCharacterAvatarUpload(event)" />
+
+                <div class="w-full space-y-1.5">
+                  <button onclick="app.triggerCharacterAvatarUpload()" class="w-full py-1.5 px-2.5 rounded-lg bg-brass-500/25 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 font-display font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-upload"></i> Enviar Imagem
+                  </button>
+                  <div class="flex items-center gap-1 w-full">
+                    <input id="charAvatarUrlInput" type="text" onchange="app.updateCharacterAvatarUrl(this.value)" placeholder="Ou cole URL..." class="sheet-input flex-1 min-w-0 px-2 py-1 rounded text-[10px]" />
+                    <button onclick="app.clearCharacterAvatar()" title="Remover Foto do Personagem" class="px-2 py-1 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-400 hover:text-crimson-300 border border-slate-800 text-[10px]">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
               
               <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <div class="sm:col-span-2">
@@ -348,12 +382,18 @@
                   </div>
                 </div>
 
-                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <div class="mt-3 pt-2.5 border-t border-slate-800/80 space-y-2">
                   <input id="charActingSummary" type="text" oninput="app.updateField('actingSummary', this.value)" placeholder="Lema de Atuação atual..."
-                    class="sheet-input flex-1 px-2.5 py-1 rounded text-xs italic text-slate-300" />
-                  <button onclick="app.openDeleteCharacterModal()" title="Excluir esta ficha" class="p-1.5 rounded bg-crimson-900/30 hover:bg-crimson-600/40 text-crimson-400 border border-crimson-500/30 text-xs transition-all">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
+                    class="sheet-input w-full px-2.5 py-1.5 rounded text-xs italic text-slate-300" />
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 text-xs">
+                      <span class="text-[10px] font-display uppercase text-amber-300"><i class="fa-solid fa-medal mr-1"></i>Contribuição:</span>
+                      <input id="charContributionPointsHeader" type="number" oninput="app.updateField('contributionPoints', Number(this.value))" class="sheet-input w-16 text-center py-0.5 rounded text-xs font-bold text-amber-200" />
+                    </div>
+                    <button onclick="app.openDeleteCharacterModal()" title="Excluir esta ficha permanentemente" class="px-3 py-1.5 rounded-lg bg-crimson-900/60 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/50 font-display font-bold text-xs flex items-center gap-1.5 shadow transition-all">
+                      <i class="fa-solid fa-trash-can"></i> Excluir Esta Ficha
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -576,6 +616,12 @@
                 <button onclick="app.switchSheetTab('mutations')" id="tabBtn-mutations" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-biohazard"></i> Mutações
                 </button>
+                <button onclick="app.switchSheetTab('resistances')" id="tabBtn-resistances" class="sheet-tab-btn flex-1 min-w-[130px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-shield-halved"></i> Resistências & Fraquezas
+                </button>
+                <button onclick="app.switchSheetTab('store')" id="tabBtn-store" class="sheet-tab-btn flex-1 min-w-[125px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-store"></i> Loja da Campanha
+                </button>
                 <button onclick="app.switchSheetTab('downtime')" id="tabBtn-downtime" class="sheet-tab-btn flex-1 min-w-[125px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-calendar-week"></i> Semana / Entre-Missões
                   <span id="downtimePendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-amber-400 text-obsidian-950 font-extrabold text-[9px]">1 Teste!</span>
@@ -747,6 +793,44 @@
 
                   <div id="mutationsListContainer" class="space-y-3.5"></div>
                 </div>
+              </div>
+
+              <!-- ABA NOVA: RESISTÊNCIAS & FRAQUEZAS -->
+              <div id="tabContent-resistances" class="hidden space-y-5">
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-emerald-300 flex items-center gap-2">
+                        <i class="fa-solid fa-shield-heart text-emerald-400"></i> Resistências, Imunidades & Proteções Místicas
+                      </h3>
+                      <p class="text-xs text-slate-400">Registre reduções de dano, imunidades de sequência, bênçãos e resistências elementais ou espirituais</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('resistances')" class="px-3 py-1.5 rounded-lg bg-emerald-600/25 hover:bg-emerald-500 text-emerald-200 hover:text-obsidian-950 border border-emerald-400/40 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Adicionar Resistência
+                    </button>
+                  </div>
+                  <div id="resistancesListContainer" class="space-y-3"></div>
+                </div>
+
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-crimson-300 flex items-center gap-2">
+                        <i class="fa-solid fa-heart-crack text-crimson-400"></i> Fraquezas, Vulnerabilidades & Efeitos Negativos
+                      </h3>
+                      <p class="text-xs text-slate-400">Acompanhe vulnerabilidades a tipos de dano, condições de selamento de artefatos e gatilhos de perda de controle</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('weaknesses')" class="px-3 py-1.5 rounded-lg bg-crimson-600/25 hover:bg-crimson-500 text-crimson-200 hover:text-white border border-crimson-400/40 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Adicionar Fraqueza
+                    </button>
+                  </div>
+                  <div id="weaknessesListContainer" class="space-y-3"></div>
+                </div>
+              </div>
+
+              <!-- ABA NOVA: LOJA DA CAMPANHA & CONTRIBUIÇÕES -->
+              <div id="tabContent-store" class="hidden space-y-4">
+                <div id="campaignStoreTabContainer"></div>
               </div>
 
               <!-- ABA 5: SEMANA / ENTRE-MISSÕES (DOWNTIME) -->
