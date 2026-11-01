@@ -3,6 +3,7 @@ import {
   SAVING_THROWS_DEF,
   SKILLS_DEF,
   DEFAULT_TURN_ACTIONS,
+  PASSIVE_ABILITY_PRESETS,
   DEFAULT_COMBAT_STATE,
   DEFAULT_CAMPAIGN_STATE,
   WEEK_DAYS_DEF,
@@ -39,7 +40,8 @@ import {
   renderMutationsList,
   renderResistancesAndWeaknesses,
   renderCampaignStoreTab,
-  renderDiceLogs
+  renderDiceLogs,
+  renderOraclePassivesSection
 } from './ui/renderers.js';
 
 class BeyonderGrimoireController {
@@ -58,6 +60,7 @@ class BeyonderGrimoireController {
     this.diceLogs = [];
     this.saveTimeout = null;
     this.lastLocalEditTime = 0;
+    this.activeOracleTab = 'rolls'; // 'rolls' | 'passives'
     this.seqProgTargetCharId = null;
     this.deleteTargetCharId = null;
     this.storeUIState = { subTab: 'items', categoryFilter: 'all', searchText: '' };
@@ -69,16 +72,26 @@ class BeyonderGrimoireController {
 
     this.storage = new StorageService({
       onCharactersChanged: (loadedMap) => {
-        const activelyTyping = isUserTypingAnywhere() || (Date.now() - this.lastLocalEditTime < 1400);
-        if (activelyTyping && this.activeCharacterId && this.charactersMap[this.activeCharacterId] && loadedMap[this.activeCharacterId]) {
-          // Mantém a versão local em digitação da ficha ativa para não cancelar o foco/prompt do usuário
-          const localActive = this.charactersMap[this.activeCharacterId];
-          this.charactersMap = { ...loadedMap, [this.activeCharacterId]: localActive };
+        const mergedMap = { ...loadedMap };
+        // Protege alterações locais mais recentes (ex: digitação em Mutações, Armas, Notas) contra snapshots atrasados da nuvem
+        Object.keys(this.charactersMap || {}).forEach(cid => {
+          const localChar = this.charactersMap[cid];
+          const remoteChar = mergedMap[cid];
+          if (localChar && remoteChar && (localChar.updatedAt || 0) > (remoteChar.updatedAt || 0)) {
+            mergedMap[cid] = localChar;
+          }
+        });
+
+        const activelyTyping = isUserTypingAnywhere() || this.saveTimeout !== null || (Date.now() - this.lastLocalEditTime < 2200);
+        if (activelyTyping && this.activeCharacterId && this.charactersMap[this.activeCharacterId] && mergedMap[this.activeCharacterId]) {
+          mergedMap[this.activeCharacterId] = this.charactersMap[this.activeCharacterId];
+          this.charactersMap = mergedMap;
           renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
           renderCombatBar(this.combatState, this.charactersMap, this.viewMode, this.campaignState, this.activeCharacterId, this.currentUser);
+          renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, false);
           return;
         }
-        this.charactersMap = loadedMap;
+        this.charactersMap = mergedMap;
         this.ensureValidActiveCharacterForUser();
         this.renderAll();
       },
@@ -185,15 +198,19 @@ class BeyonderGrimoireController {
       );
     }
     renderDiceLogs(this.diceLogs, this.campaignState, this.activeCharacterId, this.viewMode, this.currentUser);
+    renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, false);
   }
 
   scheduleAutoSave() {
     const char = this.getActiveChar();
     if (!char) return;
-    this.lastLocalEditTime = Date.now();
+    const now = Date.now();
+    this.lastLocalEditTime = now;
+    char.updatedAt = now;
 
     if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(async () => {
+      this.saveTimeout = null;
       await this.storage.saveCharacter(char, this.charactersMap);
       renderCombatBar(this.combatState, this.charactersMap, this.viewMode, this.campaignState, this.activeCharacterId, this.currentUser);
     }, 650);
@@ -1420,7 +1437,17 @@ class BeyonderGrimoireController {
     const ch = this.charactersMap[charId] || this.getActiveChar();
     if (!ch || actionKey === 'livre') return;
     if (!ch.turnActions) ch.turnActions = { ...DEFAULT_TURN_ACTIONS };
-    ch.turnActions[actionKey] = false;
+    if (actionKey === 'completa') {
+      if (ch.turnActions.padrao === false || ch.turnActions.bonus === false) {
+        showToast('Ação Completa exige 1 Ação Padrão e 1 Ação Bônus disponíveis no turno!', 'error');
+        return;
+      }
+      ch.turnActions.padrao = false;
+      ch.turnActions.bonus = false;
+    } else {
+      ch.turnActions[actionKey] = false;
+    }
+    ch.updatedAt = Date.now();
     this.renderAll();
     this.storage.saveCharacter(ch, this.charactersMap);
     const meta = getActionTypeMeta(actionKey);
@@ -1621,6 +1648,8 @@ class BeyonderGrimoireController {
     const char = this.getActiveChar();
     if (!char?.[collectionKey]?.[index]) return;
     char[collectionKey][index][field] = value;
+    char.updatedAt = Date.now();
+    this.lastLocalEditTime = char.updatedAt;
     if (shouldReRender) {
       this.renderSpecificCollection(char, collectionKey, true);
     } else {
@@ -1673,7 +1702,16 @@ class BeyonderGrimoireController {
 
     if (consumeAction && actionKey !== 'livre') {
       if (!char.turnActions) char.turnActions = { ...DEFAULT_TURN_ACTIONS };
-      char.turnActions[actionKey] = false;
+      if (actionKey === 'completa') {
+        if (char.turnActions.padrao === false || char.turnActions.bonus === false) {
+          showToast('Esta habilidade exige Ação Completa (1 Ação Padrão + 1 Ação Bônus disponíveis)!', 'error');
+          return;
+        }
+        char.turnActions.padrao = false;
+        char.turnActions.bonus = false;
+      } else {
+        char.turnActions[actionKey] = false;
+      }
     }
 
     this.renderAll();
@@ -1833,7 +1871,16 @@ class BeyonderGrimoireController {
     const actionMeta = getActionTypeMeta(actionKey);
     if (consumeAction && actionKey !== 'livre') {
       if (!char.turnActions) char.turnActions = { ...DEFAULT_TURN_ACTIONS };
-      char.turnActions[actionKey] = false;
+      if (actionKey === 'completa') {
+        if (char.turnActions.padrao === false || char.turnActions.bonus === false) {
+          showToast('Esta habilidade exige Ação Completa (1 Ação Padrão + 1 Ação Bônus disponíveis)!', 'error');
+          return;
+        }
+        char.turnActions.padrao = false;
+        char.turnActions.bonus = false;
+      } else {
+        char.turnActions[actionKey] = false;
+      }
     }
 
     this.renderAll();
@@ -1978,11 +2025,12 @@ class BeyonderGrimoireController {
     this.charactersMap[newChar.id] = newChar;
     this.activeCharacterId = newChar.id;
 
-    // Se quem criou for o Mestre, já adiciona na campanha ativa; se for jogador, fica visível para o Mestre escalar na campanha
-    if (this.isGMUser() && activeCamp) {
+    if (activeCamp) {
       if (!Array.isArray(activeCamp.characterIds)) activeCamp.characterIds = [];
-      activeCamp.characterIds.push(newChar.id);
-      await this.storage.saveCampaignState(this.campaignState);
+      if (!activeCamp.characterIds.includes(newChar.id)) {
+        activeCamp.characterIds.push(newChar.id);
+      }
+      await this.storage.saveCampaignStoreTransaction(this.campaignState);
     }
 
     this.viewMode = 'sheet';
@@ -2136,6 +2184,136 @@ class BeyonderGrimoireController {
     this.renderAll();
     await this.storage.saveCharacter(char, this.charactersMap);
     showToast('Imagem do personagem removida.');
+  }
+
+  // --- ABA DE PASSIVAS ATIVAS NO ORÁCULO DE DADOS (VISÃO ESPIRITUAL, ETC.) ---
+  switchOracleTab(tab) {
+    this.activeOracleTab = tab === 'passives' ? 'passives' : 'rolls';
+    renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+  }
+
+  async togglePresetPassive(presetId) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    const preset = PASSIVE_ABILITY_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+
+    if (!Array.isArray(char.activePassives)) char.activePassives = [];
+    const existingIdx = char.activePassives.findIndex(ap => (ap.name || '').toLowerCase() === preset.name.toLowerCase());
+
+    if (existingIdx >= 0) {
+      const removed = char.activePassives.splice(existingIdx, 1)[0];
+      showToast(`${removed.name} desativada.`);
+    } else {
+      if ((preset.cost || 0) > 0 && char.vitals?.sp) {
+        char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - preset.cost);
+      }
+      char.activePassives.unshift({
+        id: `pas_${Date.now()}`,
+        name: preset.name,
+        cost: preset.cost || 0,
+        icon: preset.icon || 'fa-eye',
+        description: preset.description || ''
+      });
+      showToast(`${preset.name} ativada no Oráculo!${preset.cost ? ` (-${preset.cost} PE)` : ''}`, 'crit');
+    }
+
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+  }
+
+  async togglePowerAsActivePassive(powerIdx) {
+    const char = this.getActiveChar();
+    const pw = char?.powers?.[powerIdx];
+    if (!char || !pw) return;
+
+    if (!Array.isArray(char.activePassives)) char.activePassives = [];
+    const existingIdx = char.activePassives.findIndex(ap => (ap.name || '').toLowerCase() === (pw.name || '').toLowerCase());
+
+    if (existingIdx >= 0) {
+      const removed = char.activePassives.splice(existingIdx, 1)[0];
+      showToast(`Passiva "${removed.name}" desativada.`);
+    } else {
+      const cost = Number(pw.cost) || 0;
+      if (cost > 0 && char.vitals?.sp) {
+        char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - cost);
+      }
+      char.activePassives.unshift({
+        id: `pas_${Date.now()}`,
+        name: pw.name || 'Poder Ativo',
+        cost,
+        icon: 'fa-hand-sparkles',
+        description: pw.description || `${pw.sequence || 'Poder Beyonder'} ativo.`
+      });
+      showToast(`"${pw.name}" ativada nas Passivas Ativas!${cost > 0 ? ` (-${cost} PE)` : ''}`, 'crit');
+    }
+
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderMysticList(char, 'powers', true);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+  }
+
+  async addCustomActivePassive() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    const name = document.getElementById('customPassiveNameInput')?.value.trim();
+    const cost = Math.max(0, Number(document.getElementById('customPassiveCostInput')?.value) || 0);
+    const description = document.getElementById('customPassiveDescInput')?.value.trim() || '';
+
+    if (!name) {
+      showToast('Digite o nome da passiva ou efeito contínuo.', 'error');
+      return;
+    }
+
+    if (!Array.isArray(char.activePassives)) char.activePassives = [];
+    if (cost > 0 && char.vitals?.sp) {
+      char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - cost);
+    }
+
+    char.activePassives.unshift({
+      id: `pas_${Date.now()}`,
+      name,
+      cost,
+      icon: 'fa-eye',
+      description
+    });
+
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast(`Passiva "${name}" ativada no Oráculo!`, 'crit');
+  }
+
+  async deactivatePassive(passiveIdx) {
+    const char = this.getActiveChar();
+    if (!char || !Array.isArray(char.activePassives)) return;
+    const removed = char.activePassives.splice(passiveIdx, 1)[0];
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderMysticList(char, 'powers', true);
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    if (removed) showToast(`Passiva "${removed.name}" desativada.`);
+  }
+
+  async spendPassiveMaintenancePE(passiveIdx) {
+    const char = this.getActiveChar();
+    const ap = char?.activePassives?.[passiveIdx];
+    if (!char || !ap) return;
+    const cost = Number(ap.cost) || 0;
+    if (cost > 0 && char.vitals?.sp) {
+      char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - cost);
+    }
+    char.updatedAt = Date.now();
+    this.renderAll();
+    renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast(`${char.name} manteve "${ap.name}" ativa (-${cost} PE).`);
   }
 
   // --- LOJA DA CAMPANHA & ABA DE CONTRIBUIÇÕES ---

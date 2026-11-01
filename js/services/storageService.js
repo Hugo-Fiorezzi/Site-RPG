@@ -468,9 +468,8 @@ export class StorageService {
     try {
       localStorage.removeItem(LOCAL_SESSION_KEY);
     } catch (_) {}
-    if (this.isCloudConnected && this.auth) {
+    if (this.isCloudConnected && this.auth && !this.auth.currentUser) {
       try {
-        await signOut(this.auth);
         await signInAnonymously(this.auth);
       } catch (_) {}
     }
@@ -604,15 +603,44 @@ export class StorageService {
     });
     this.unsubscribeFns.push(unsubUsers);
 
+    this.cloudColLogs = [];
+    this.cloudFeedLogs = [];
+    const mergeAndEmitLogs = () => {
+      const mapById = new Map();
+      [...(this.cloudFeedLogs || []), ...(this.cloudColLogs || [])].forEach(item => {
+        if (!item) return;
+        const key = item.id || `${item.characterName}_${item.timestamp}_${item.total}`;
+        if (!mapById.has(key)) {
+          mapById.set(key, { ...item, id: key });
+        }
+      });
+      const merged = Array.from(mapById.values())
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 40);
+      try {
+        localStorage.setItem(LOCAL_LOGS_KEY, JSON.stringify(merged));
+      } catch (_) {}
+      this.onLogsChanged(merged);
+    };
+
+    const diceFeedDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_tracker', 'active_feed');
+    const unsubFeed = onSnapshot(diceFeedDocRef, (docSnap) => {
+      if (docSnap.exists() && Array.isArray(docSnap.data().logs)) {
+        this.cloudFeedLogs = docSnap.data().logs;
+        mergeAndEmitLogs();
+      }
+    }, () => {});
+    this.unsubscribeFns.push(unsubFeed);
+
     const logsColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_logs');
     const unsubLogs = onSnapshot(logsColRef, (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
-      list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      this.onLogsChanged(list.slice(0, 40));
-    });
+      this.cloudColLogs = list;
+      mergeAndEmitLogs();
+    }, () => {});
     this.unsubscribeFns.push(unsubLogs);
 
     const combatDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'combat_tracker', 'active_combat');
@@ -738,17 +766,27 @@ export class StorageService {
   }
 
   async publishDiceLog(logEntry, currentLogs) {
-    const entry = { ...logEntry, timestamp: Date.now() };
-    const updated = [{ id: `local_${Date.now()}`, ...entry }, ...currentLogs].slice(0, 40);
+    const rollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const entry = { ...logEntry, id: rollId, timestamp: Date.now() };
+    const updated = [entry, ...(currentLogs || []).filter(l => l.id !== rollId)].slice(0, 40);
     try {
       localStorage.setItem(LOCAL_LOGS_KEY, JSON.stringify(updated));
     } catch (_) {}
 
+    // Emite imediatamente na interface local e publica de forma atômica no Firestore
+    this.onLogsChanged(updated);
+
     if (this.isCloudConnected && this.db) {
       try {
-        const logsColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_logs');
-        await addDoc(logsColRef, entry);
-        return currentLogs;
+        if (this.auth && !this.auth.currentUser) {
+          try { await signInAnonymously(this.auth); } catch (_) {}
+        }
+        const diceFeedDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_tracker', 'active_feed');
+        const rollDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_logs', rollId);
+        await Promise.all([
+          setDoc(diceFeedDocRef, { logs: updated, updatedAt: Date.now() }),
+          setDoc(rollDocRef, entry)
+        ]);
       } catch (_) {}
     }
     return updated;
@@ -758,11 +796,15 @@ export class StorageService {
     try {
       localStorage.removeItem(LOCAL_LOGS_KEY);
     } catch (_) {}
+    this.cloudColLogs = [];
+    this.cloudFeedLogs = [];
 
     if (this.isCloudConnected && this.db) {
       try {
-        for (const l of currentLogs) {
-          if (l.id && !l.id.startsWith('local_')) {
+        const diceFeedDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_tracker', 'active_feed');
+        await setDoc(diceFeedDocRef, { logs: [], updatedAt: Date.now() });
+        for (const l of (currentLogs || [])) {
+          if (l.id) {
             await deleteDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_logs', l.id));
           }
         }

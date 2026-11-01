@@ -892,15 +892,15 @@
       </section>
     </main>
 
-    <!-- SIDEBAR: ORÁCULO DE DADOS -->
+    <!-- SIDEBAR: ORÁCULO DE DADOS & PASSIVAS ATIVAS -->
     <aside id="diceSidebar" class="w-full xl:w-96 shrink-0 flex flex-col gap-4">
-      <div class="victorian-card-gold rounded-xl p-4 flex flex-col h-[680px] xl:sticky xl:top-28">
-        <div class="flex items-center justify-between border-b border-brass-400/25 pb-3 mb-3">
+      <div class="victorian-card-gold rounded-xl p-4 flex flex-col h-[720px] xl:sticky xl:top-28">
+        <div class="flex items-center justify-between border-b border-brass-400/25 pb-2.5 mb-2.5">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-dice-d20 text-brass-400 text-lg"></i>
             <div>
               <h2 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200">Oráculo de Dados</h2>
-              <p class="text-[11px] text-slate-400">Histórico sincronizado da campanha</p>
+              <p class="text-[11px] text-slate-400">Rolagens em tempo real & Passivas Ativas</p>
             </div>
           </div>
           <button onclick="app.clearDiceLogs()" title="Limpar Histórico da Mesa (Apenas Mestre)" class="px-2 py-1 rounded text-[11px] bg-obsidian-800 hover:bg-crimson-950/60 text-slate-400 hover:text-crimson-300 border border-slate-700 transition-all">
@@ -908,40 +908,60 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-3 gap-1.5 bg-obsidian-950 p-1 rounded-lg border border-slate-800 mb-3">
-          <button id="rollMode-normal" onclick="app.setRollMode('normal')" class="py-1.5 rounded-md text-xs font-bold transition-all bg-brass-500 text-obsidian-950">Normal</button>
-          <button id="rollMode-advantage" onclick="app.setRollMode('advantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-emerald-300">Vantagem</button>
-          <button id="rollMode-disadvantage" onclick="app.setRollMode('disadvantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-crimson-300">Desvantagem</button>
+        <!-- Alternador de Abas do Oráculo: Dados vs Passivas Ativas -->
+        <div class="grid grid-cols-2 gap-1.5 bg-obsidian-950 p-1 rounded-xl border border-slate-800 mb-3 shrink-0">
+          <button id="oracleTabBtn-rolls" onclick="app.switchOracleTab('rolls')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow">
+            <i class="fa-solid fa-dice-d20"></i> Rolagens
+          </button>
+          <button id="oracleTabBtn-passives" onclick="app.switchOracleTab('passives')" class="py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200">
+            <i class="fa-solid fa-eye"></i> Passivas Ativas
+            <span id="activePassivesCountBadge" class="px-1.5 py-0.2 rounded-full bg-eldritch-600 text-white text-[9px] font-extrabold">0</span>
+          </button>
         </div>
 
-        <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3 mb-3 space-y-2.5">
-          <div class="flex items-center justify-between gap-2 text-xs">
-            <div class="flex items-center gap-1.5">
-              <span class="text-slate-400">Qtd:</span>
-              <input id="customDiceCount" type="number" min="1" max="20" value="1" class="sheet-input w-12 text-center py-1 rounded font-bold text-brass-200" />
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-slate-400">Mod:</span>
-              <input id="customDiceMod" type="number" value="0" class="sheet-input w-14 text-center py-1 rounded font-bold text-cyan-300" />
-            </div>
-            <label class="inline-flex items-center gap-1 text-[11px] text-amber-300 cursor-pointer">
-              <input id="useBonusDieNow" type="checkbox" class="accent-amber-400 rounded" />
-              <span>+Bônus Dado</span>
-            </label>
+        <!-- ABA 1 DO ORÁCULO: ROLAGENS DE DADOS -->
+        <div id="oracleRollsPanel" class="flex-1 flex flex-col min-h-0">
+          <div class="grid grid-cols-3 gap-1.5 bg-obsidian-950 p-1 rounded-lg border border-slate-800 mb-2.5 shrink-0">
+            <button id="rollMode-normal" onclick="app.setRollMode('normal')" class="py-1.5 rounded-md text-xs font-bold transition-all bg-brass-500 text-obsidian-950">Normal</button>
+            <button id="rollMode-advantage" onclick="app.setRollMode('advantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-emerald-300">Vantagem</button>
+            <button id="rollMode-disadvantage" onclick="app.setRollMode('disadvantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-crimson-300">Desvantagem</button>
           </div>
 
-          <div class="grid grid-cols-7 gap-1.5">
-            <button onclick="app.rollCustomDie(4)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d4</button>
-            <button onclick="app.rollCustomDie(6)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d6</button>
-            <button onclick="app.rollCustomDie(8)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d8</button>
-            <button onclick="app.rollCustomDie(10)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d10</button>
-            <button onclick="app.rollCustomDie(12)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d12</button>
-            <button onclick="app.rollCustomDie(20)" class="py-2 rounded-lg bg-gradient-to-b from-brass-500/30 to-obsidian-800 hover:from-brass-500/50 border border-brass-400 text-brass-200 font-display font-extrabold text-xs transition-all hover:scale-105">d20</button>
-            <button onclick="app.rollCustomDie(100)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-eldritch-500/20 border border-eldritch-400/40 text-eldritch-300 font-display font-bold text-[11px] transition-all hover:scale-105">d100</button>
+          <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3 mb-2.5 space-y-2.5 shrink-0">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Qtd:</span>
+                <input id="customDiceCount" type="number" min="1" max="20" value="1" class="sheet-input w-12 text-center py-1 rounded font-bold text-brass-200" />
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Mod:</span>
+                <input id="customDiceMod" type="number" value="0" class="sheet-input w-14 text-center py-1 rounded font-bold text-cyan-300" />
+              </div>
+              <label class="inline-flex items-center gap-1 text-[11px] text-amber-300 cursor-pointer">
+                <input id="useBonusDieNow" type="checkbox" class="accent-amber-400 rounded" />
+                <span>+Bônus Dado</span>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1.5">
+              <button onclick="app.rollCustomDie(4)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d4</button>
+              <button onclick="app.rollCustomDie(6)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d6</button>
+              <button onclick="app.rollCustomDie(8)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d8</button>
+              <button onclick="app.rollCustomDie(10)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d10</button>
+              <button onclick="app.rollCustomDie(12)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d12</button>
+              <button onclick="app.rollCustomDie(20)" class="py-2 rounded-lg bg-gradient-to-b from-brass-500/30 to-obsidian-800 hover:from-brass-500/50 border border-brass-400 text-brass-200 font-display font-extrabold text-xs transition-all hover:scale-105">d20</button>
+              <button onclick="app.rollCustomDie(100)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-eldritch-500/20 border border-eldritch-400/40 text-eldritch-300 font-display font-bold text-[11px] transition-all hover:scale-105">d100</button>
+            </div>
           </div>
+
+          <!-- Mini-barra mostrando passivas ligadas (ex: Visão Espiritual) mesmo na aba de dados -->
+          <div id="oracleActivePassivesMiniBar" class="mb-2 shrink-0"></div>
+
+          <div id="diceLogFeed" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
         </div>
 
-        <div id="diceLogFeed" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+        <!-- ABA 2 DO ORÁCULO: PASSIVAS ATIVAS (VISÃO ESPIRITUAL, ETC.) -->
+        <div id="oraclePassivesPanel" class="hidden flex-1 overflow-y-auto space-y-3 pr-1"></div>
       </div>
     </aside>
 

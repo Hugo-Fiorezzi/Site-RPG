@@ -20,9 +20,41 @@ export const SAVING_THROWS_DEF = [
 export const ACTION_TYPES = [
   { key: 'padrao', label: 'Ação Padrão', short: 'Padrão', icon: 'fa-hand-fist', badgeClass: 'bg-crimson-950/90 text-crimson-300 border-crimson-500/40' },
   { key: 'bonus', label: 'Ação Bônus', short: 'Bônus', icon: 'fa-bolt', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' },
+  { key: 'completa', label: 'Ação Completa (Padrão + Bônus)', short: 'Completa', icon: 'fa-burst', badgeClass: 'bg-fuchsia-950/90 text-fuchsia-300 border-fuchsia-500/40' },
   { key: 'movimento', label: 'Ação de Movimento', short: 'Movimento', icon: 'fa-person-running', badgeClass: 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' },
   { key: 'oportunidade', label: 'Oportunidade / Reação', short: 'Oportunidade', icon: 'fa-shield-halved', badgeClass: 'bg-astral-900/90 text-astral-300 border-astral-500/40' },
   { key: 'livre', label: 'Ação Livre / Passiva', short: 'Livre', icon: 'fa-feather', badgeClass: 'bg-obsidian-800 text-slate-300 border-slate-600/40' }
+];
+
+export const PASSIVE_ABILITY_PRESETS = [
+  {
+    id: 'preset_visao_espiritual',
+    name: 'Visão Espiritual (Spirit Vision)',
+    cost: 1,
+    icon: 'fa-eye',
+    description: 'Enxerga auras emocionais, saúde, fluxos de espiritualidade e corpos etéreos.'
+  },
+  {
+    id: 'preset_intuicao_perigo',
+    name: 'Intuição Espiritual de Perigo',
+    cost: 0,
+    icon: 'fa-compass',
+    description: 'Pressente emboscadas, armadilhas místicas e olhares hostis direcionados a você.'
+  },
+  {
+    id: 'preset_leitura_espectador',
+    name: 'Observação de Espectador',
+    cost: 0,
+    icon: 'fa-masks-theater',
+    description: 'Lê microexpressões, intenções ocultas e oscilações mentais nos alvos próximos.'
+  },
+  {
+    id: 'preset_escuta_sussurros',
+    name: 'Sentidos Aguçados / Rastreador',
+    cost: 1,
+    icon: 'fa-ear-listen',
+    description: 'Percepção ampliada para rastros espirituais, batimentos e sons sutis no ambiente.'
+  }
 ];
 
 export const DEFAULT_TURN_ACTIONS = {

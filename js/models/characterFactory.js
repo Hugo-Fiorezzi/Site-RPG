@@ -43,6 +43,16 @@ export function createDefaultCharacter(overrides = {}) {
     currencySoli: overrides.currencySoli ?? 8,
     currencyPenny: overrides.currencyPenny ?? 4,
     turnActions: overrides.turnActions || { ...DEFAULT_TURN_ACTIONS },
+    activePassives: overrides.activePassives || [
+      {
+        id: 'pas_visao_espiritual',
+        name: 'Visão Espiritual (Spirit Vision)',
+        cost: 1,
+        icon: 'fa-eye',
+        description: 'Enxerga auras emocionais, saúde, fluxos de espiritualidade e corpos etéreos.',
+        activatedAt: 'Ativa'
+      }
+    ],
     vitals: overrides.vitals || {
       hp: { current: 24, max: 24, temp: 0 },
       sp: { current: 30, max: 30, temp: 0 },

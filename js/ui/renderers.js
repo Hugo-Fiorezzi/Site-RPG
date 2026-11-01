@@ -7,6 +7,7 @@ import {
   MUTATION_TYPES,
   MUTATION_SEVERITIES,
   ACTION_TYPES,
+  PASSIVE_ABILITY_PRESETS,
   DEFAULT_TURN_ACTIONS,
   WEEK_DAYS_DEF,
   DOWNTIME_OUTCOME_TYPES,
@@ -181,7 +182,7 @@ export function renderSharedDiceTicker(diceLogs, campaignState, activeCharacterI
   const ticker = document.getElementById('sharedDiceTickerBar');
   if (!ticker) return;
 
-  const canSeeRolls = isCharAllowedInActiveCampaign(activeCharacterId, campaignState, viewMode, currentUser);
+  const canSeeRolls = true;
   const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
 
   if (!canSeeRolls) {
@@ -195,10 +196,6 @@ export function renderSharedDiceTicker(diceLogs, campaignState, activeCharacterI
   }
 
   let visibleLogs = diceLogs || [];
-  if (activeCamp && activeCamp.restrictCombatAndDice !== false && !(viewMode === 'gm' && currentUser?.role === 'gm')) {
-    const allowedIds = new Set(activeCamp.characterIds || []);
-    visibleLogs = visibleLogs.filter(l => !l.characterId || allowedIds.has(l.characterId) || l.campaignId === activeCamp.id);
-  }
 
   if (visibleLogs.length === 0) {
     ticker.innerHTML = `
@@ -1799,6 +1796,7 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
     { key: 'available', label: 'Apenas Disponíveis no Turno' },
     { key: 'padrao', label: 'Ação Padrão' },
     { key: 'bonus', label: 'Ação Bônus' },
+    { key: 'completa', label: 'Ação Completa (Padrão+Bônus)' },
     { key: 'movimento', label: 'Movimento' },
     { key: 'oportunidade', label: 'Oportunidade' }
   ];
@@ -1851,6 +1849,14 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
 
   allOptions.push(
     {
+      actionType: 'completa',
+      category: 'Manobra de Turno Inteiro',
+      name: 'Ação Completa (Consome 1 Ação Padrão + 1 Ação Bônus)',
+      detail: 'Executa ação complexa, canalização ritualística ou ataque concentrado',
+      ctaLabel: 'Gastar Ação Completa',
+      onClick: `app.consumeTurnAction('${char.id}', 'completa', 'Ação Completa')`
+    },
+    {
       actionType: 'movimento',
       category: 'Manobra Básica',
       name: 'Deslocamento Tático / Buscar Cobertura',
@@ -1868,10 +1874,16 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
     }
   );
 
+  const isActionSlotAvailable = (aType) => {
+    if (aType === 'livre') return true;
+    if (aType === 'completa') return turnActions.padrao !== false && turnActions.bonus !== false;
+    return turnActions[aType] !== false;
+  };
+
   const filtered = allOptions.filter(opt => {
     if (actionFilterMode === 'all') return true;
     if (actionFilterMode === 'available') {
-      return opt.actionType === 'livre' || turnActions[opt.actionType] !== false;
+      return isActionSlotAvailable(opt.actionType);
     }
     return opt.actionType === actionFilterMode;
   });
@@ -1883,7 +1895,7 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
 
   filteredResultsContainer.innerHTML = filtered.map(opt => {
     const meta = getActionTypeMeta(opt.actionType);
-    const slotAvailable = opt.actionType === 'livre' || turnActions[opt.actionType] !== false;
+    const slotAvailable = isActionSlotAvailable(opt.actionType);
 
     return `
       <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-950/85 border ${slotAvailable ? 'border-slate-800' : 'border-slate-900 opacity-55'} rounded-lg px-3 py-2">
@@ -2092,11 +2104,17 @@ export function renderMysticList(char, collectionKey, forceRebuild = false) {
               class="sheet-input w-full px-1.5 py-1.5 rounded text-xs text-center font-bold text-astral-300" />
           </div>
 
-          <div class="sm:col-span-2 flex items-end justify-end gap-1.5 pt-3">
+          <div class="sm:col-span-2 flex items-end justify-end gap-1 pt-3">
             <button onclick="app.useMysticResource('${collectionKey}', ${idx}, true)"
               class="flex-1 py-1.5 px-2 rounded-lg ${isPowers ? 'bg-eldritch-600/40 hover:bg-eldritch-500 text-eldritch-200 border-eldritch-400/40' : 'bg-astral-600/40 hover:bg-astral-500 text-astral-200 border-astral-400/40'} hover:text-white border text-xs font-bold flex items-center justify-center gap-1 transition-all">
               <i class="fa-solid ${isPowers ? 'fa-bolt' : 'fa-wand-sparkles'}"></i> ${isPowers ? 'Usar' : 'Conjurar'}
             </button>
+            ${isPowers ? `
+              <button onclick="app.togglePowerAsActivePassive(${idx})" title="Ativar/Desativar nas Passivas Ativas do Oráculo"
+                class="p-1.5 rounded-lg border text-xs transition-all ${(char.activePassives || []).some(ap => ap.name === item.name) ? 'bg-emerald-500 text-obsidian-950 border-emerald-300 font-bold' : 'bg-obsidian-900 hover:bg-eldritch-950 text-eldritch-300 border-slate-800'}">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            ` : ''}
             <button onclick="app.removeCollectionItem('${collectionKey}', ${idx})" class="p-1.5 rounded-lg bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
               <i class="fa-solid fa-trash"></i>
             </button>
@@ -2114,24 +2132,37 @@ export function renderMysticList(char, collectionKey, forceRebuild = false) {
 export function renderMutationsList(char, forceRebuild = false) {
   const container = document.getElementById('mutationsListContainer');
   if (!container) return;
-  if (!forceRebuild && isUserTypingInContainer(container)) return;
   const mutations = char.mutations || [];
+
+  // Se a quantidade de cards de mutação na tela já é a mesma e não foi pedida reconstrução forçada,
+  // atualiza apenas os valores nos campos que NÃO estão em foco para que o texto da descrição nunca suma!
+  const existingCards = container.querySelectorAll('[data-mutation-card]');
+  if (!forceRebuild && (isUserTypingInContainer(container) || (mutations.length > 0 && existingCards.length === mutations.length))) {
+    mutations.forEach((m, idx) => {
+      setInputValueIfNotFocused(`mutName_${idx}`, m.name || '');
+      setInputValueIfNotFocused(`mutType_${idx}`, m.type || MUTATION_TYPES[0]);
+      setInputValueIfNotFocused(`mutSev_${idx}`, m.severity || MUTATION_SEVERITIES[0]);
+      setInputValueIfNotFocused(`mutDesc_${idx}`, m.description || '');
+    });
+    return;
+  }
+
   if (mutations.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">Nenhuma mutação física, mental ou espiritual registrada.</p>`;
     return;
   }
 
   container.innerHTML = mutations.map((m, idx) => `
-    <div class="bg-obsidian-950/85 border border-crimson-500/35 rounded-xl p-4 space-y-2.5">
+    <div data-mutation-card="${idx}" class="bg-obsidian-950/85 border border-crimson-500/35 rounded-xl p-4 space-y-2.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <input type="text" value="${escapeHtml(m.name || '')}" oninput="app.updateCollectionItem('mutations', ${idx}, 'name', this.value)"
+        <input id="mutName_${idx}" type="text" value="${escapeHtml(m.name || '')}" oninput="app.updateCollectionItem('mutations', ${idx}, 'name', this.value)"
           placeholder="Nome da Mutação / Sintoma" class="sheet-input flex-1 min-w-[180px] px-2.5 py-1.5 rounded text-xs font-bold text-crimson-300" />
 
-        <select onchange="app.updateCollectionItem('mutations', ${idx}, 'type', this.value)" class="sheet-input px-2.5 py-1.5 rounded text-xs text-eldritch-300">
+        <select id="mutType_${idx}" onchange="app.updateCollectionItem('mutations', ${idx}, 'type', this.value)" class="sheet-input px-2.5 py-1.5 rounded text-xs text-eldritch-300">
           ${MUTATION_TYPES.map(t => `<option value="${t}" ${m.type === t ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
 
-        <select onchange="app.updateCollectionItem('mutations', ${idx}, 'severity', this.value)" class="sheet-input px-2.5 py-1.5 rounded text-xs text-amber-300">
+        <select id="mutSev_${idx}" onchange="app.updateCollectionItem('mutations', ${idx}, 'severity', this.value)" class="sheet-input px-2.5 py-1.5 rounded text-xs text-amber-300">
           ${MUTATION_SEVERITIES.map(s => `<option value="${s}" ${m.severity === s ? 'selected' : ''}>Severidade: ${s}</option>`).join('')}
         </select>
 
@@ -2140,7 +2171,7 @@ export function renderMutationsList(char, forceRebuild = false) {
         </button>
       </div>
 
-      <textarea rows="2" oninput="app.updateCollectionItem('mutations', ${idx}, 'description', this.value)"
+      <textarea id="mutDesc_${idx}" rows="2" oninput="app.updateCollectionItem('mutations', ${idx}, 'description', this.value)"
         placeholder="Sintomas visuais, gatilhos de perda de controle e efeitos mecânicos..."
         class="sheet-input w-full p-2.5 rounded text-xs text-slate-200 leading-relaxed">${escapeHtml(m.description || '')}</textarea>
     </div>
@@ -2966,6 +2997,210 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
           </div>
         </div>
       `}
+    </div>
+  `;
+}
+
+
+export function renderOraclePassivesSection(char, charactersMap, campaignState, currentUser, activeOracleTab = 'rolls', forceRebuild = false) {
+  const btnRolls = document.getElementById('oracleTabBtn-rolls');
+  const btnPassives = document.getElementById('oracleTabBtn-passives');
+  const panelRolls = document.getElementById('oracleRollsPanel');
+  const panelPassives = document.getElementById('oraclePassivesPanel');
+  const badge = document.getElementById('activePassivesCountBadge');
+  const miniBar = document.getElementById('oracleActivePassivesMiniBar');
+
+  const activePassives = Array.isArray(char?.activePassives) ? char.activePassives : [];
+  if (badge) {
+    badge.textContent = String(activePassives.length);
+    badge.className = activePassives.length > 0
+      ? 'px-1.5 py-0.2 rounded-full bg-emerald-400 text-obsidian-950 text-[9px] font-extrabold animate-pulse'
+      : 'px-1.5 py-0.2 rounded-full bg-obsidian-800 text-slate-400 text-[9px] font-bold';
+  }
+
+  if (btnRolls && btnPassives && panelRolls && panelPassives) {
+    if (activeOracleTab === 'passives') {
+      btnPassives.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow';
+      btnRolls.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200';
+      panelRolls.classList.add('hidden');
+      panelPassives.classList.remove('hidden');
+    } else {
+      btnRolls.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-brass-400 text-obsidian-950 shadow';
+      btnPassives.className = 'py-1.5 px-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-brass-200';
+      panelRolls.classList.remove('hidden');
+      panelPassives.classList.add('hidden');
+    }
+  }
+
+  // Mini-barra visível mesmo na aba de Dados para acompanhar passivas ligadas (ex: Visão Espiritual)
+  if (miniBar) {
+    if (activePassives.length === 0) {
+      miniBar.innerHTML = '';
+    } else {
+      miniBar.innerHTML = `
+        <div class="bg-eldritch-950/60 border border-eldritch-400/40 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span class="text-[9px] font-display font-bold uppercase text-eldritch-300 shrink-0">
+              <i class="fa-solid fa-eye text-emerald-400 animate-pulse mr-1"></i>Ativas:
+            </span>
+            ${activePassives.map(ap => `
+              <span class="px-2 py-0.5 rounded bg-obsidian-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold truncate max-w-[140px]">
+                ${escapeHtml(ap.name)}
+              </span>
+            `).join('')}
+          </div>
+          <button onclick="app.switchOracleTab('passives')" class="text-[10px] text-brass-300 hover:underline shrink-0 font-semibold">
+            Ver
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  if (!panelPassives) return;
+  if (!forceRebuild && isUserTypingInContainer(panelPassives)) return;
+
+  if (!char) {
+    panelPassives.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Selecione ou crie uma ficha para gerenciar as Passivas Ativas.</div>`;
+    return;
+  }
+
+  const activeNames = new Set(activePassives.map(p => (p.name || '').toLowerCase()));
+  const charPowers = char.powers || [];
+
+  // Outros personagens da mesa com passivas ligadas
+  const otherActiveChars = Object.values(charactersMap || {}).filter(
+    c => c.id !== char.id && Array.isArray(c.activePassives) && c.activePassives.length > 0
+  );
+
+  panelPassives.innerHTML = `
+    <div class="space-y-3.5">
+      <!-- 1. PASSIVAS ATIVAS NO MOMENTO (FICHA ATUAL) -->
+      <div class="bg-obsidian-950/90 border border-emerald-500/40 rounded-xl p-3 space-y-2.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <span class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-eye text-emerald-400 animate-pulse"></i> Passivas Ativas de ${escapeHtml(char.name)}
+          </span>
+          <span class="text-[10px] text-astral-300 font-bold">PE: ${char.vitals?.sp?.current ?? 0}/${char.vitals?.sp?.max ?? 0}</span>
+        </div>
+
+        ${activePassives.length === 0 ? `
+          <p class="text-xs text-slate-500 italic text-center py-2">
+            Nenhuma passiva ligada no momento. Ative a <strong>Visão Espiritual</strong> ou outro poder abaixo!
+          </p>
+        ` : `
+          <div class="space-y-2">
+            ${activePassives.map((ap, idx) => `
+              <div class="bg-obsidian-900/95 border border-emerald-500/40 rounded-lg p-2.5 space-y-1.5 shadow-md">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                      <h4 class="font-display font-bold text-xs text-emerald-200 truncate">${escapeHtml(ap.name)}</h4>
+                    </div>
+                    ${ap.description ? `<p class="text-[11px] text-slate-300 mt-0.5 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
+                  </div>
+                  <button onclick="app.deactivatePassive(${idx})" title="Desativar esta passiva"
+                    class="px-2 py-0.5 rounded bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[10px] font-bold shrink-0 transition-all">
+                    Desativar
+                  </button>
+                </div>
+                <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
+                  <span class="text-slate-400">Custo: <strong class="text-astral-300">${ap.cost ?? 0} PE</strong></span>
+                  ${(ap.cost ?? 0) > 0 ? `
+                    <button onclick="app.spendPassiveMaintenancePE(${idx})"
+                      class="px-2 py-0.5 rounded bg-astral-900/70 hover:bg-astral-500 text-astral-200 hover:text-obsidian-950 border border-astral-500/40 font-bold transition-all">
+                      <i class="fa-solid fa-star-of-life mr-1"></i>Manter (-${ap.cost} PE)
+                    </button>
+                  ` : `<span class="text-emerald-400 font-semibold">Sustentação Livre</span>`}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+
+      <!-- 2. ATIVAÇÃO RÁPIDA (VISÃO ESPIRITUAL & PODERES DA FICHA) -->
+      <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2.5">
+        <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles text-brass-400"></i> Alternar Passivas & Visão Espiritual (1 Clique)
+        </h4>
+        <div class="space-y-1.5">
+          ${PASSIVE_ABILITY_PRESETS.map(preset => {
+            const isOn = activeNames.has(preset.name.toLowerCase());
+            return `
+              <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
+                <div class="min-w-0">
+                  <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-slate-200'} truncate">
+                    <i class="fa-solid ${preset.icon} mr-1 text-brass-400"></i>${escapeHtml(preset.name)}
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(preset.description)}</div>
+                </div>
+                <button onclick="app.togglePresetPassive('${preset.id}')"
+                  class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/35'}">
+                  ${isOn ? 'Ativa' : 'Ativar'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+
+          ${charPowers.map((pw, idx) => {
+            const isOn = activeNames.has((pw.name || '').toLowerCase());
+            return `
+              <div class="flex items-center justify-between gap-2 bg-obsidian-900/80 border ${isOn ? 'border-emerald-500/50' : 'border-slate-800'} rounded-lg px-2.5 py-1.5">
+                <div class="min-w-0">
+                  <div class="text-xs font-bold ${isOn ? 'text-emerald-300' : 'text-eldritch-200'} truncate">
+                    <i class="fa-solid fa-hand-sparkles mr-1 text-eldritch-400"></i>${escapeHtml(pw.name || 'Poder')}
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(pw.sequence || 'Poder da Ficha')} • ${pw.cost ?? 0} PE</div>
+                </div>
+                <button onclick="app.togglePowerAsActivePassive(${idx})"
+                  class="px-2.5 py-1 rounded-lg font-display font-bold text-[10px] uppercase shrink-0 transition-all ${isOn ? 'bg-emerald-500 text-obsidian-950 shadow' : 'bg-obsidian-800 hover:bg-eldritch-500 text-eldritch-200 hover:text-white border border-eldritch-400/35'}">
+                  ${isOn ? 'Ativa' : 'Ativar'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- 3. ADICIONAR NOVA PASSIVA PERSONALIZADA -->
+      <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
+        <h4 class="font-display font-bold text-[11px] uppercase tracking-wider text-slate-300">
+          <i class="fa-solid fa-plus-circle text-brass-400 mr-1"></i> Ativar Outra Passiva / Efeito Contínuo
+        </h4>
+        <div class="grid grid-cols-12 gap-1.5">
+          <input id="customPassiveNameInput" type="text" placeholder="Nome (Ex: Corpo de Fios)" class="sheet-input col-span-8 px-2.5 py-1 rounded text-xs font-bold" />
+          <input id="customPassiveCostInput" type="number" min="0" value="1" title="Custo de PE" placeholder="PE" class="sheet-input col-span-4 px-2 py-1 rounded text-xs text-center text-astral-300 font-bold" />
+        </div>
+        <input id="customPassiveDescInput" type="text" placeholder="Efeito ativo para acompanhar..." class="sheet-input w-full px-2.5 py-1 rounded text-xs" />
+        <button onclick="app.addCustomActivePassive()" class="w-full py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider shadow transition-all">
+          <i class="fa-solid fa-eye mr-1"></i> Ativar & Acompanhar no Oráculo
+        </button>
+      </div>
+
+      <!-- 4. OUTROS JOGADORES COM PASSIVAS ATIVAS NA MESA -->
+      ${otherActiveChars.length > 0 ? `
+        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
+          <h4 class="font-display font-bold text-[10px] uppercase tracking-wider text-slate-400">
+            <i class="fa-solid fa-users-rays text-brass-400 mr-1"></i> Passivas Ativas na Mesa (Campanha)
+          </h4>
+          <div class="space-y-1.5">
+            ${otherActiveChars.map(oc => `
+              <div class="bg-obsidian-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+                <div class="font-display font-bold text-brass-200">${escapeHtml(oc.name)}</div>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${(oc.activePassives || []).map(ap => `
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
+                      <i class="fa-solid fa-eye mr-1"></i>${escapeHtml(ap.name)}
+                    </span>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
