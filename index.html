@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grimório do Nevoeiro Cinza — Sistema de Fichas Beyonder & Painel do Mestre</title>
+
+  <!-- Tailwind CSS & Configuração Customizada -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="./js/config/tailwind.config.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Estilos Vitorianos Customizados & Modo Macabro de Combate -->
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col selection:bg-brass-400 selection:text-obsidian-950" data-bg-pattern="nevoeiro">
+
+  <!-- BANNER GLOBAL DE ALERTA QUANDO O MESTRE INICIA O COMBATE (TEMA MACABRO) -->
+  <div id="macabreCombatAlertBanner" class="hidden sticky top-0 z-50 bg-gradient-to-r from-crimson-950 via-rose-900 to-crimson-950 border-b border-rose-500/70 px-4 py-1.5 text-center shadow-2xl">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-center gap-2 text-xs font-display font-bold uppercase tracking-widest text-rose-100">
+      <i class="fa-solid fa-skull-crossbones text-rose-300 animate-bounce"></i>
+      <span>Perigo Abissal — O Mestre Iniciou o Combate! O Nevoeiro Tingiu-se de Sangue</span>
+      <i class="fa-solid fa-skull-crossbones text-rose-300 animate-bounce"></i>
+    </div>
+  </div>
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="sticky top-0 z-40 bg-obsidian-950/95 backdrop-blur-md border-b border-brass-400/30 shadow-xl">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-brass-400 via-brass-600 to-obsidian-900 p-[1px] shadow-lg shadow-brass-500/10">
+          <div class="w-full h-full bg-obsidian-900 rounded-[7px] flex items-center justify-center text-brass-300">
+            <i class="fa-solid fa-eye text-lg"></i>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="font-display font-bold text-base sm:text-lg tracking-wider text-brass-200 uppercase">
+              Grimório Beyonder
+            </h1>
+            <button onclick="app.openCloudDatabaseModal()" id="syncStatusBadge" title="Clique para configurar Banco de Dados Cloud Gratuito (Firebase)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 cursor-pointer hover:opacity-90">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Sincronizado
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">
+            Mesa Online Gratuita & Banco de Dados • <span id="userDisplayId" class="font-mono text-slate-500">Conectando...</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 flex-1 justify-center lg:justify-end">
+        <!-- Botão do Painel do Mestre (Visível SOMENTE para login de Mestre) -->
+        <button id="btnToggleGMView" onclick="app.setViewMode('gm')" class="hidden px-3.5 py-2 rounded-lg font-display text-xs sm:text-sm font-semibold tracking-wide transition-all flex items-center gap-2 border border-brass-400/40 bg-obsidian-800 hover:bg-brass-500/20 text-brass-200">
+          <i class="fa-solid fa-crown text-brass-400"></i>
+          <span>Painel do Mestre</span>
+          <span id="gmCountBadge" class="px-1.5 py-0.2 bg-brass-400/20 text-brass-200 rounded text-xs">0</span>
+        </button>
+
+        <!-- Seletor de Ficha (Mestre vê todas; Jogador vê apenas as que criou) -->
+        <div class="relative flex items-center">
+          <i class="fa-solid fa-scroll text-brass-400 absolute left-3 pointer-events-none text-xs"></i>
+          <select id="characterSelectDropdown" onchange="app.handleCharacterSelect(this.value)" class="pl-8 pr-8 py-2 rounded-lg bg-obsidian-800 border border-brass-400/40 text-xs sm:text-sm text-slate-100 font-medium focus:outline-none focus:border-brass-400 cursor-pointer max-w-[210px] sm:max-w-[260px] truncate">
+            <option value="">Carregando fichas...</option>
+          </select>
+        </div>
+
+        <button onclick="app.openNewCharacterModal()" class="px-3 py-2 rounded-lg bg-gradient-to-r from-brass-500 to-brass-600 hover:from-brass-400 hover:to-brass-500 text-obsidian-950 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition-all">
+          <i class="fa-solid fa-plus"></i>
+          <span class="hidden sm:inline">Nova Ficha</span>
+        </button>
+
+        <!-- Personalização de Tema, Cores e Fundo do Usuário -->
+        <button onclick="app.openThemeCustomizerModal()" title="Personalizar Cores, Tema e Fundo" class="px-2.5 py-2 rounded-lg bg-obsidian-800 border border-brass-400/35 text-brass-200 hover:bg-brass-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all">
+          <i class="fa-solid fa-palette text-brass-400"></i>
+          <span class="hidden md:inline">Tema</span>
+        </button>
+
+        <!-- Configuração de Banco de Dados Cloud & Hospedagem Gratuita -->
+        <button onclick="app.openCloudDatabaseModal()" title="Conectar Banco de Dados Gratuito (Firebase) & Guia de Hospedagem" class="px-2.5 py-2 rounded-lg bg-obsidian-800 border border-astral-500/35 text-astral-300 hover:bg-astral-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all">
+          <i class="fa-solid fa-cloud-arrow-up text-astral-400"></i>
+          <span class="hidden md:inline">Banco & Site Grátis</span>
+        </button>
+
+        <button id="btnToggleSound" onclick="app.toggleSound()" title="Ativar/Desativar Sons de Dados e Combate" class="p-2 rounded-lg bg-obsidian-800 border border-slate-700 text-slate-300 hover:text-brass-300 hover:border-brass-400/40 transition-all">
+          <i id="soundIcon" class="fa-solid fa-volume-high text-sm"></i>
+        </button>
+
+        <button onclick="app.toggleMobileDiceDrawer()" class="xl:hidden px-3 py-2 rounded-lg bg-eldritch-900/70 border border-eldritch-400/40 text-eldritch-300 font-semibold text-xs sm:text-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-dice-d20"></i>
+          <span>Dados</span>
+        </button>
+
+        <!-- Conta Logada (Mestre ou Jogador) -->
+        <div id="loggedUserBadgeContainer"></div>
+      </div>
+    </div>
+
+    <!-- BARRA DE ROLAGEM DE DADOS COMPARTILHADA -->
+    <div class="bg-obsidian-900/95 border-t border-brass-400/20 px-3 sm:px-6 py-1.5">
+      <div class="max-w-[1600px] mx-auto flex items-center gap-3">
+        <span class="text-[10px] font-display font-bold uppercase tracking-wider text-brass-400 shrink-0 flex items-center gap-1.5">
+          <i class="fa-solid fa-dice-d20"></i> Rolagens da Mesa:
+        </span>
+        <div id="sharedDiceTickerBar" class="flex items-center gap-2 overflow-x-auto py-0.5 flex-1"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- BARRA DE COMBATE & ORDEM DE INICIATIVA -->
+  <section class="max-w-[1600px] w-full mx-auto px-3 sm:px-5 pt-4">
+    <div class="victorian-card-gold rounded-xl p-3.5 sm:p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <button onclick="app.toggleCombatBarCollapse()" class="w-7 h-7 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/40 text-brass-300 flex items-center justify-center">
+            <i id="combatCollapseIcon" class="fa-solid fa-chevron-up text-xs"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-display font-bold text-sm sm:text-base text-brass-200 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-swords text-crimson-400"></i> Barra de Combate & Iniciativa
+              </h2>
+              <span id="combatRoundBadge" class="px-2 py-0.5 rounded-full bg-crimson-950 text-crimson-300 border border-crimson-500/40 font-display font-bold text-xs">
+                Rodada 1
+              </span>
+              <span id="combatCampaignBadge" class="px-2.5 py-0.5 rounded-full bg-obsidian-900 text-brass-300 border border-brass-400/30 font-display font-semibold text-[11px]">
+                Campanha Ativa
+              </span>
+              <span id="combatActiveStatusPill" class="px-2.5 py-0.5 rounded-full bg-obsidian-900 text-slate-400 border border-slate-700 font-display font-semibold text-[11px]">
+                Fora de Combate
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              Quando o Mestre inicia o combate, o tema de todos muda para um visual macabro e retorna ao tema de cada jogador quando desligado
+            </p>
+          </div>
+        </div>
+
+        <div id="combatGMControlsContainer" class="flex flex-wrap items-center gap-2">
+          <button onclick="app.syncPlayersToCombat()" class="px-3 py-1.5 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 border border-brass-400/30 text-brass-200 text-xs font-semibold flex items-center gap-1.5 transition-all">
+            <i class="fa-solid fa-users"></i> Sincronizar Campanha
+          </button>
+          <button onclick="app.addMonsterToCombat()" class="px-3 py-1.5 rounded-lg bg-crimson-900/50 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-xs font-bold flex items-center gap-1.5 transition-all">
+            <i class="fa-solid fa-dragon"></i> + Inimigo / Monstro
+          </button>
+          <button onclick="app.nextCombatTurn()" class="px-3.5 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs flex items-center gap-1.5 shadow-md transition-all">
+            <i class="fa-solid fa-forward-step"></i> Próximo Turno
+          </button>
+        </div>
+      </div>
+
+      <div id="combatBarBody" class="mt-3 pt-3 border-t border-brass-400/20">
+        <div id="combatTrackerContent"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="max-w-[1600px] w-full mx-auto flex-1 flex flex-col xl:flex-row gap-5 p-3 sm:p-5">
+
+    <main class="flex-1 min-w-0">
+
+      <!-- MODO 1: VISÃO GERAL E CONTROLE DE CAMPANHA DO MESTRE (PROTEGIDO POR LOGIN DE MESTRE) -->
+      <section id="gmDashboardView" class="hidden space-y-6">
+        <div class="victorian-card-gold rounded-xl p-5 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-brass-400 font-display mb-1">
+              <i class="fa-solid fa-eye"></i> Acima do Nevoeiro Cinza (Acesso Exclusivo do Mestre)
+            </div>
+            <h2 class="text-xl sm:text-2xl font-display font-bold text-slate-100">
+              Mesa do Mestre — Controle de Todas as Fichas, Campanhas & Semanas
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              Visualize todas as fichas criadas pelos jogadores, escale-as em campanhas, inicie o Combate Macabro, avalie a rotina semanal e passe a semana.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="app.toggleCombatActiveState()" class="px-3.5 py-2.5 rounded-lg bg-crimson-600 hover:bg-crimson-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all">
+              <i class="fa-solid fa-skull"></i> Alternar Modo Combate
+            </button>
+            <button onclick="app.openCreateCampaignModal()" class="px-3.5 py-2.5 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/40 text-brass-200 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all">
+              <i class="fa-solid fa-compass text-brass-400"></i> Nova Campanha
+            </button>
+            <button onclick="app.openPassWeekModal()" class="px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all">
+              <i class="fa-solid fa-calendar-check"></i> Passar a Semana
+            </button>
+            <button onclick="app.openNewCharacterModal()" class="px-4 py-2.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all">
+              <i class="fa-solid fa-user-plus"></i> Criar Ficha
+            </button>
+            <button onclick="app.seedSampleCharacters()" class="px-3.5 py-2.5 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 border border-brass-400/30 text-brass-200 text-xs sm:text-sm flex items-center gap-2 transition-all">
+              <i class="fa-solid fa-wand-magic-sparkles text-brass-400"></i> Fichas Exemplo
+            </button>
+          </div>
+        </div>
+
+        <!-- Segurança do Mestre: Alterar Código de Convite de Mestre -->
+        <div class="victorian-card rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-key text-brass-400 text-base"></i>
+            <div>
+              <h3 class="font-display font-bold text-xs sm:text-sm text-brass-200 uppercase">Segurança do Painel do Mestre</h3>
+              <p class="text-[11px] text-slate-400">Defina a palavra-chave secreta exigida para criar novas contas com privilégio de Mestre (padrão inicial: <code class="text-brass-300">tolo</code>)</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="gmNewSecretCodeInput" type="password" placeholder="Nova chave secreta do Mestre..." class="sheet-input px-3 py-1.5 rounded-lg text-xs w-52" />
+            <button onclick="app.updateMasterSecretCodeFromGM()" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-xs font-bold transition-all">
+              Salvar Chave
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-Abas do Painel do Mestre -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="gmTabBtn-overview" onclick="app.switchGMSubTab('overview')" class="px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-brass-400 text-obsidian-950 shadow-md">
+            <i class="fa-solid fa-users-viewfinder"></i> Visão Geral das Fichas
+          </button>
+          <button id="gmTabBtn-campaign" onclick="app.switchGMSubTab('campaign')" class="px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30">
+            <i class="fa-solid fa-campground"></i> Aba de Campanha & Rotina Semanal (Passar Semana)
+          </button>
+        </div>
+
+        <!-- Sub-Aba 1: Cards de Todas as Fichas -->
+        <div id="gmSubTab-overview">
+          <div id="gmCharactersGrid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Sub-Aba 2: Gerenciador de Campanha, Seleção de Fichas e Análise de Downtime -->
+        <div id="gmSubTab-campaign" class="hidden">
+          <div id="gmCampaignManagerContent"></div>
+        </div>
+      </section>
+
+      <!-- MODO 2: FICHA COMPLETA DO PERSONAGEM -->
+      <section id="characterSheetView" class="space-y-5">
+
+        <!-- Aviso caso o jogador recém-cadastrado ainda não tenha criado nenhuma ficha -->
+        <div id="playerNoSheetPrompt" class="hidden victorian-card-gold rounded-2xl p-8 text-center space-y-4">
+          <i class="fa-solid fa-scroll text-4xl text-brass-400"></i>
+          <h3 class="font-display font-bold text-xl text-brass-200">Você ainda não possui uma Ficha Beyonder</h3>
+          <p class="text-xs sm:text-sm text-slate-300 max-w-lg mx-auto">
+            Como jogador, você pode criar e gerenciar suas próprias fichas. Assim que criar sua ficha, o Mestre poderá visualizá-la no Painel do Mestre e adicioná-la à campanha ativa!
+          </p>
+          <button onclick="app.openNewCharacterModal()" class="px-5 py-2.5 rounded-xl bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-sm inline-flex items-center gap-2 shadow-lg">
+            <i class="fa-solid fa-plus"></i> Criar Minha Ficha Agora
+          </button>
+        </div>
+
+        <div id="characterSheetMainContent" class="space-y-5">
+          <!-- 1. CABEÇALHO DO PERSONAGEM -->
+          <div class="victorian-card-gold rounded-xl p-4 sm:p-6">
+            <div class="flex flex-col lg:flex-row gap-5 justify-between">
+              
+              <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div class="sm:col-span-2">
+                  <label class="block text-[11px] font-display uppercase tracking-wider text-brass-300 mb-1">Nome do Personagem</label>
+                  <input id="charName" type="text" oninput="app.updateField('name', this.value)" placeholder="Ex: Klein Moretti"
+                    class="sheet-input w-full px-3.5 py-2 rounded-lg font-display font-bold text-lg text-brass-200" />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-display uppercase tracking-wider text-slate-400 mb-1">Jogador(a)</label>
+                  <input id="charPlayer" type="text" oninput="app.updateField('player', this.value)" placeholder="Nome do Jogador"
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-sm" />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-display uppercase tracking-wider text-slate-400 mb-1">Organização / Afiliação</label>
+                  <input id="charOrganization" type="text" oninput="app.updateField('organization', this.value)" placeholder="Ex: Falcões Noturnos"
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-sm" />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-display uppercase tracking-wider text-eldritch-400 mb-1">
+                    <i class="fa-solid fa-compass-drafting mr-1"></i> Caminho Beyonder
+                  </label>
+                  <input id="charPathway" list="beyonderPathwaysList" type="text" oninput="app.updateField('pathway', this.value)" placeholder="Ex: Vidente..."
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-sm font-semibold text-eldritch-300 border-eldritch-500/30" />
+                  <datalist id="beyonderPathwaysList"></datalist>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-display uppercase tracking-wider text-brass-300 mb-1">Sequência Atual</label>
+                  <select id="charSequence" onchange="app.updateField('sequence', this.value)" class="sheet-input w-full px-3 py-2 rounded-lg text-sm font-bold text-brass-200">
+                    <option value="Humana">Humano Comum (Sem Poção)</option>
+                    <option value="9">Sequência 9 (Baixa)</option>
+                    <option value="8">Sequência 8 (Baixa)</option>
+                    <option value="7">Sequência 7 (Média)</option>
+                    <option value="6">Sequência 6 (Média)</option>
+                    <option value="5">Sequência 5 (Média)</option>
+                    <option value="4">Sequência 4 (Semideus / Santo)</option>
+                    <option value="3">Sequência 3 (Santo)</option>
+                    <option value="2">Sequência 2 (Anjo)</option>
+                    <option value="1">Sequência 1 (Arcanjo)</option>
+                    <option value="0">Sequência 0 (Deus Verdadeiro)</option>
+                  </select>
+                </div>
+
+                <div class="sm:col-span-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block text-[11px] font-display uppercase tracking-wider text-brass-300">Nome da Poção / Título da Sequência</label>
+                    <button onclick="app.openSequenceProgressionModal()" class="gm-only-action text-[10px] font-display font-bold text-eldritch-300 hover:text-eldritch-200 underline flex items-center gap-1">
+                      <i class="fa-solid fa-angles-up"></i> Progredir Sequência (Mestre)
+                    </button>
+                  </div>
+                  <input id="charPotionName" type="text" oninput="app.updateField('potionName', this.value)" placeholder="Ex: Palhaço, Sem Rosto..."
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-sm font-semibold text-slate-100" />
+                </div>
+              </div>
+
+              <!-- Digestão da Poção -->
+              <div class="lg:w-80 flex flex-col justify-between bg-obsidian-950/70 p-3.5 rounded-xl border border-brass-400/25">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-display uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
+                      <i class="fa-solid fa-flask-vial text-amber-400"></i> Digestão da Poção
+                    </span>
+                    <div class="flex items-center gap-1">
+                      <input id="charPotionProgress" type="number" min="0" max="100" oninput="app.updateField('potionProgress', Number(this.value))"
+                        class="w-14 text-right px-1.5 py-0.5 rounded bg-obsidian-800 border border-brass-400/30 text-brass-200 font-bold text-xs" />
+                      <span class="text-xs text-brass-300 font-bold">%</span>
+                    </div>
+                  </div>
+
+                  <div class="w-full h-3 bg-obsidian-800 rounded-full overflow-hidden border border-slate-700/80 mb-2">
+                    <div id="potionProgressBar" class="h-full bg-gradient-to-r from-amber-600 via-brass-400 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <input id="charPotionSlider" type="range" min="0" max="100" oninput="app.updateField('potionProgress', Number(this.value))"
+                      class="flex-1 accent-amber-400 cursor-pointer h-1.5 bg-obsidian-700 rounded-lg" />
+                    <button onclick="app.adjustPotionProgress(-5)" class="px-1.5 py-0.5 text-[11px] rounded bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 border border-slate-700">-5%</button>
+                    <button onclick="app.adjustPotionProgress(5)" class="px-1.5 py-0.5 text-[11px] rounded bg-obsidian-800 hover:bg-obsidian-700 text-brass-300 border border-brass-400/30">+5%</button>
+                  </div>
+                </div>
+
+                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                  <input id="charActingSummary" type="text" oninput="app.updateField('actingSummary', this.value)" placeholder="Lema de Atuação atual..."
+                    class="sheet-input flex-1 px-2.5 py-1 rounded text-xs italic text-slate-300" />
+                  <button onclick="app.openDeleteCharacterModal()" title="Excluir esta ficha" class="p-1.5 rounded bg-crimson-900/30 hover:bg-crimson-600/40 text-crimson-400 border border-crimson-500/30 text-xs transition-all">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 2. STATUS VITAIS & DEFESA -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+
+              <!-- VIDA (PV) -->
+              <div class="victorian-card rounded-xl p-4 border-l-4 border-l-crimson-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-display font-bold text-xs uppercase tracking-wider text-crimson-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-heart-pulse"></i> Vida (PV)
+                  </span>
+                  <div class="flex items-center gap-1 text-[11px] text-slate-400">
+                    <span>Temp:</span>
+                    <input id="hpTemp" type="number" oninput="app.updateVital('hp', 'temp', Number(this.value))"
+                      class="w-11 px-1 py-0.5 text-center rounded bg-obsidian-950 border border-slate-700 text-crimson-300 font-semibold" />
+                  </div>
+                </div>
+                <div class="flex items-center justify-center gap-2 my-2">
+                  <input id="hpCurrent" type="number" oninput="app.updateVital('hp', 'current', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-950 border border-crimson-500/40 text-2xl font-display font-bold text-slate-100 focus:border-crimson-400 focus:outline-none" />
+                  <span class="text-slate-500 font-bold text-xl">/</span>
+                  <input id="hpMax" type="number" oninput="app.updateVital('hp', 'max', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-900 border border-slate-700 text-xl font-display font-semibold text-slate-300 focus:border-crimson-400 focus:outline-none" />
+                </div>
+                <div class="w-full h-2.5 bg-obsidian-950 rounded-full overflow-hidden border border-slate-800 mb-3">
+                  <div id="hpBar" class="h-full bg-gradient-to-r from-crimson-600 to-rose-400 transition-all duration-300" style="width: 100%"></div>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                  <button onclick="app.modifyVital('hp', -5)" class="py-1 rounded bg-crimson-950/60 hover:bg-crimson-900/80 border border-crimson-500/30 text-crimson-300 text-xs font-bold">-5</button>
+                  <button onclick="app.modifyVital('hp', -1)" class="py-1 rounded bg-crimson-950/60 hover:bg-crimson-900/80 border border-crimson-500/30 text-crimson-300 text-xs font-bold">-1</button>
+                  <button onclick="app.modifyVital('hp', 1)" class="py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 text-emerald-300 text-xs font-bold">+1</button>
+                  <button onclick="app.modifyVital('hp', 5)" class="py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 text-emerald-300 text-xs font-bold">+5</button>
+                </div>
+              </div>
+
+              <!-- ESPIRITUALIDADE (PE) -->
+              <div class="victorian-card rounded-xl p-4 border-l-4 border-l-astral-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-display font-bold text-xs uppercase tracking-wider text-astral-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-star-of-life"></i> Espiritualidade
+                  </span>
+                  <div class="flex items-center gap-1 text-[11px] text-slate-400">
+                    <span>Temp:</span>
+                    <input id="spTemp" type="number" oninput="app.updateVital('sp', 'temp', Number(this.value))"
+                      class="w-11 px-1 py-0.5 text-center rounded bg-obsidian-950 border border-slate-700 text-astral-300 font-semibold" />
+                  </div>
+                </div>
+                <div class="flex items-center justify-center gap-2 my-2">
+                  <input id="spCurrent" type="number" oninput="app.updateVital('sp', 'current', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-950 border border-astral-500/40 text-2xl font-display font-bold text-slate-100 focus:border-astral-400 focus:outline-none" />
+                  <span class="text-slate-500 font-bold text-xl">/</span>
+                  <input id="spMax" type="number" oninput="app.updateVital('sp', 'max', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-900 border border-slate-700 text-xl font-display font-semibold text-slate-300 focus:border-astral-400 focus:outline-none" />
+                </div>
+                <div class="w-full h-2.5 bg-obsidian-950 rounded-full overflow-hidden border border-slate-800 mb-3">
+                  <div id="spBar" class="h-full bg-gradient-to-r from-astral-600 to-cyan-300 transition-all duration-300" style="width: 100%"></div>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                  <button onclick="app.modifyVital('sp', -5)" class="py-1 rounded bg-astral-900/50 hover:bg-astral-900/80 border border-astral-500/30 text-astral-300 text-xs font-bold">-5</button>
+                  <button onclick="app.modifyVital('sp', -1)" class="py-1 rounded bg-astral-900/50 hover:bg-astral-900/80 border border-astral-500/30 text-astral-300 text-xs font-bold">-1</button>
+                  <button onclick="app.modifyVital('sp', 1)" class="py-1 rounded bg-astral-900/50 hover:bg-astral-900/80 border border-astral-500/30 text-cyan-300 text-xs font-bold">+1</button>
+                  <button onclick="app.modifyVital('sp', 5)" class="py-1 rounded bg-astral-900/50 hover:bg-astral-900/80 border border-astral-500/30 text-cyan-300 text-xs font-bold">+5</button>
+                </div>
+              </div>
+
+              <!-- SANIDADE (SAN) -->
+              <div class="victorian-card rounded-xl p-4 border-l-4 border-l-eldritch-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-display font-bold text-xs uppercase tracking-wider text-eldritch-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-brain"></i> Sanidade (SAN)
+                  </span>
+                  <span id="sanityStatusTag" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-eldritch-900/80 text-eldritch-300 border border-eldritch-500/30">
+                    Estável
+                  </span>
+                </div>
+                <div class="flex items-center justify-center gap-2 my-2">
+                  <input id="sanCurrent" type="number" oninput="app.updateVital('san', 'current', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-950 border border-eldritch-500/40 text-2xl font-display font-bold text-slate-100 focus:border-eldritch-400 focus:outline-none" />
+                  <span class="text-slate-500 font-bold text-xl">/</span>
+                  <input id="sanMax" type="number" oninput="app.updateVital('san', 'max', Number(this.value))"
+                    class="w-20 text-center py-1 rounded-lg bg-obsidian-900 border border-slate-700 text-xl font-display font-semibold text-slate-300 focus:border-eldritch-400 focus:outline-none" />
+                </div>
+                <div class="w-full h-2.5 bg-obsidian-950 rounded-full overflow-hidden border border-slate-800 mb-3">
+                  <div id="sanBar" class="h-full bg-gradient-to-r from-eldritch-600 to-fuchsia-400 transition-all duration-300" style="width: 100%"></div>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                  <button onclick="app.modifyVital('san', -5)" class="py-1 rounded bg-eldritch-900/50 hover:bg-eldritch-900/80 border border-eldritch-500/30 text-eldritch-300 text-xs font-bold">-5</button>
+                  <button onclick="app.modifyVital('san', -1)" class="py-1 rounded bg-eldritch-900/50 hover:bg-eldritch-900/80 border border-eldritch-500/30 text-eldritch-300 text-xs font-bold">-1</button>
+                  <button onclick="app.modifyVital('san', 1)" class="py-1 rounded bg-eldritch-900/50 hover:bg-eldritch-900/80 border border-eldritch-500/30 text-fuchsia-300 text-xs font-bold">+1</button>
+                  <button onclick="app.modifyVital('san', 5)" class="py-1 rounded bg-eldritch-900/50 hover:bg-eldritch-900/80 border border-eldritch-500/30 text-fuchsia-300 text-xs font-bold">+5</button>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Defesa, CA e Bônus de Dado -->
+            <div class="lg:col-span-4 victorian-card rounded-xl p-4 flex flex-col justify-between">
+              <div class="grid grid-cols-3 gap-2.5 items-center">
+                <div class="bg-obsidian-950/80 border border-brass-400/40 rounded-xl p-2.5 text-center flex flex-col items-center justify-center">
+                  <i class="fa-solid fa-shield-halved text-brass-400 text-sm mb-0.5"></i>
+                  <span class="text-[10px] font-display uppercase tracking-wider text-slate-400">CA / Defesa</span>
+                  <input id="charArmorClass" type="number" oninput="app.updateField('armorClass', Number(this.value))"
+                    class="w-16 text-center bg-transparent font-display font-extrabold text-2xl text-brass-200 focus:outline-none" />
+                </div>
+
+                <div class="bg-obsidian-950/80 border border-slate-700/80 rounded-xl p-2.5 text-center flex flex-col items-center justify-center">
+                  <i class="fa-solid fa-graduation-cap text-amber-400 text-sm mb-0.5"></i>
+                  <span class="text-[10px] font-display uppercase tracking-wider text-slate-400">Proficiência</span>
+                  <div class="flex items-center justify-center">
+                    <span class="text-amber-400 font-bold text-lg">+</span>
+                    <input id="charProficiencyBonus" type="number" oninput="app.updateField('proficiencyBonus', Number(this.value))"
+                      class="w-12 text-center bg-transparent font-display font-extrabold text-2xl text-amber-300 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div class="bg-obsidian-950/80 border border-slate-700/80 rounded-xl p-2.5 text-center flex flex-col items-center justify-center">
+                  <button onclick="app.rollInitiative()" class="group flex flex-col items-center justify-center w-full" title="Clique para Rolar Iniciativa">
+                    <i class="fa-solid fa-bolt text-cyan-400 text-sm mb-0.5 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-[10px] font-display uppercase tracking-wider text-slate-400">Iniciativa</span>
+                    <span id="charInitiativeDisplay" class="font-display font-extrabold text-2xl text-cyan-300">+0</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-3 pt-3 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-dice text-brass-400 text-sm"></i>
+                  <div>
+                    <label class="block text-[11px] font-display uppercase tracking-wider text-brass-300">Bônus de Dado Beyonder</label>
+                    <p class="text-[10px] text-slate-400">Soma dado extra nas rolagens</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <select id="charBonusDie" onchange="app.updateField('bonusDie', this.value)"
+                    class="sheet-input px-2.5 py-1.5 rounded-lg text-xs font-bold text-brass-200">
+                    <option value="">Sem Dado Extra</option>
+                    <option value="1d4">+1d4 (Bênção/Sinal)</option>
+                    <option value="1d6">+1d6 (Inspiração)</option>
+                    <option value="1d8">+1d8 (Sequência Média)</option>
+                    <option value="1d10">+1d10 (Semideus)</option>
+                    <option value="1d12">+1d12 (Anjo)</option>
+                  </select>
+                  <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-obsidian-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                    <input id="charAutoBonusDie" type="checkbox" onchange="app.updateField('autoBonusDie', this.checked)" class="accent-amber-400 rounded" />
+                    <span>Auto</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. ATRIBUTOS PRINCIPAIS -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div id="attributesContainer" class="contents"></div>
+          </div>
+
+          <!-- 4. GRID CENTRAL: RESISTÊNCIAS + PERÍCIAS & ABAS -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+            <!-- COLUNA ESQUERDA: RESISTÊNCIAS & 21 PERÍCIAS -->
+            <div class="lg:col-span-5 space-y-5">
+              <div class="victorian-card rounded-xl p-4">
+                <div class="flex items-center justify-between border-b border-brass-400/20 pb-2.5 mb-3">
+                  <h3 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200 flex items-center gap-2">
+                    <i class="fa-solid fa-shield-virus text-brass-400"></i> Testes de Resistência
+                  </h3>
+                  <span class="text-[11px] text-slate-400">Marque proficiência • Clique no dado</span>
+                </div>
+                <div id="savingThrowsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+              </div>
+
+              <div class="victorian-card rounded-xl p-4">
+                <div class="flex flex-col gap-2.5 border-b border-brass-400/20 pb-3 mb-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div>
+                      <h3 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-book-journal-whills text-brass-400"></i> Perícias (21)
+                      </h3>
+                      <p class="text-[11px] text-slate-400">Círculo: Destreinado / Proficiente / Especialista</p>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                      <button id="btnSortSkillsAlpha" onclick="app.setSkillSortMode('alpha')" class="px-2 py-1 rounded text-[10px] font-bold bg-brass-400 text-obsidian-950">
+                        <i class="fa-solid fa-arrow-down-a-z mr-1"></i>A–Z
+                      </button>
+                      <button id="btnSortSkillsAttr" onclick="app.setSkillSortMode('attr')" class="px-2 py-1 rounded text-[10px] font-semibold bg-obsidian-900 text-slate-400 hover:text-slate-200 border border-slate-800">
+                        <i class="fa-solid fa-layer-group mr-1"></i>Atributo
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass text-slate-500 absolute left-2.5 top-2 text-xs"></i>
+                    <input id="skillSearchInput" type="text" oninput="app.filterSkills()" placeholder="Filtrar perícia por nome..."
+                      class="sheet-input pl-7 pr-2.5 py-1 rounded-lg text-xs w-full" />
+                  </div>
+                </div>
+                <div id="skillsListContainer" class="space-y-1.5 max-h-[640px] overflow-y-auto pr-1"></div>
+              </div>
+            </div>
+
+            <!-- COLUNA DIREITA: ABAS DE CONTEÚDO -->
+            <div class="lg:col-span-7 space-y-4">
+              <div class="victorian-card rounded-xl p-1.5 flex flex-wrap gap-1.5">
+                <button onclick="app.switchSheetTab('combat')" id="tabBtn-combat" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-gun"></i> Combate & Itens
+                </button>
+                <button onclick="app.switchSheetTab('powers')" id="tabBtn-powers" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-hand-sparkles"></i> Poderes Beyonder
+                </button>
+                <button onclick="app.switchSheetTab('spells')" id="tabBtn-spells" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-hat-wizard"></i> Magias & Rituais
+                </button>
+                <button onclick="app.switchSheetTab('mutations')" id="tabBtn-mutations" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-biohazard"></i> Mutações
+                </button>
+                <button onclick="app.switchSheetTab('downtime')" id="tabBtn-downtime" class="sheet-tab-btn flex-1 min-w-[125px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-calendar-week"></i> Semana / Entre-Missões
+                  <span id="downtimePendingBadge" class="hidden px-1.5 py-0.2 rounded-full bg-amber-400 text-obsidian-950 font-extrabold text-[9px]">1 Teste!</span>
+                </button>
+                <button onclick="app.switchSheetTab('notes')" id="tabBtn-notes" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                  <i class="fa-solid fa-feather-pointed"></i> Atuação & Notas
+                </button>
+              </div>
+
+              <!-- ABA 1: ECONOMIA DE AÇÕES, ARMAS E EQUIPAMENTOS -->
+              <div id="tabContent-combat" class="space-y-5">
+
+                <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-4">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-hourglass-half text-brass-400"></i> Ações Disponíveis no Turno & Filtro Tático
+                      </h3>
+                      <p class="text-xs text-slate-400">Marque as ações gastas e filtre tudo o que seu personagem pode fazer com elas</p>
+                    </div>
+                    <button onclick="app.resetCharacterTurnActions()" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-rotate"></i> Novo Turno (Restaurar Ações)
+                    </button>
+                  </div>
+
+                  <div id="playerTurnActionSlots" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+
+                  <div class="space-y-2 pt-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-display uppercase tracking-wider text-brass-300">
+                        <i class="fa-solid fa-filter mr-1"></i> Filtrar Opções por Tipo de Ação:
+                      </span>
+                    </div>
+                    <div id="playerActionFilterButtons" class="flex flex-wrap gap-1.5"></div>
+                    <div id="playerFilteredActionsList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1 pt-1"></div>
+                  </div>
+                </div>
+
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-crosshairs text-crimson-400"></i> Armas, Disparos & Ataques Místicos
+                      </h3>
+                      <p class="text-xs text-slate-400">Configure o tipo de ação, munição de armas de fogo e role ataque/dano</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('weapons')" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-500/30 border border-brass-400/40 text-brass-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Adicionar Arma
+                    </button>
+                  </div>
+                  <div id="weaponsListContainer" class="space-y-3"></div>
+                </div>
+
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-box-open text-amber-400"></i> Artefatos Selados, Equipamentos & Itens
+                      </h3>
+                      <p class="text-xs text-slate-400">Registre artefatos selados, amuletos, libras de ouro e pertences</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('equipment')" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-500/30 border border-brass-400/40 text-brass-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Novo Item / Artefato
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-3 mb-4 bg-obsidian-950/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex items-center justify-between px-2">
+                      <span class="text-xs text-amber-300 font-display"><i class="fa-solid fa-coins mr-1"></i> Libras de Ouro</span>
+                      <input id="currencyGold" type="number" oninput="app.updateField('currencyGold', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-amber-200" />
+                    </div>
+                    <div class="flex items-center justify-between px-2 border-x border-slate-800">
+                      <span class="text-xs text-slate-300 font-display"><i class="fa-solid fa-coins mr-1"></i> Soli (Prata)</span>
+                      <input id="currencySoli" type="number" oninput="app.updateField('currencySoli', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-slate-200" />
+                    </div>
+                    <div class="flex items-center justify-between px-2">
+                      <span class="text-xs text-amber-700 font-display"><i class="fa-solid fa-coins mr-1"></i> Pennies (Cobre)</span>
+                      <input id="currencyPenny" type="number" oninput="app.updateField('currencyPenny', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-amber-500" />
+                    </div>
+                  </div>
+
+                  <div id="equipmentListContainer" class="space-y-3"></div>
+                </div>
+              </div>
+
+              <!-- ABA 2: PODERES BEYONDER & RESUMOS DE EVOLUÇÃO DA POÇÃO -->
+              <div id="tabContent-powers" class="hidden space-y-4">
+                <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-2.5">
+                    <div>
+                      <h3 class="font-display font-bold text-sm sm:text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-flask-vial text-amber-400"></i> Histórico de Evolução da Poção & Avanço de Sequência
+                      </h3>
+                      <p class="text-xs text-slate-400">Resumo escrito pelo Mestre detalhando o que foi alterado na poção ao progredir a sequência</p>
+                    </div>
+                    <button onclick="app.openSequenceProgressionModal()" class="gm-only-action px-3 py-1.5 rounded-lg bg-eldritch-600/30 hover:bg-eldritch-600/50 border border-eldritch-400/40 text-eldritch-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-angles-up"></i> Progredir Sequência & Escrever Resumo
+                    </button>
+                  </div>
+                  <div id="sequenceSummariesPowersContainer"></div>
+                </div>
+
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-hand-sparkles text-eldritch-400"></i> Poderes Beyonder & Habilidades de Sequência
+                      </h3>
+                      <p class="text-xs text-slate-400">Defina o tipo de ação (Padrão, Bônus, Movimento, Oportunidade) e ative descontando PE</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('powers')" class="px-3 py-1.5 rounded-lg bg-eldritch-600/30 hover:bg-eldritch-600/50 border border-eldritch-400/40 text-eldritch-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Adicionar Poder Beyonder
+                    </button>
+                  </div>
+                  <div id="powersListContainer" class="space-y-3.5"></div>
+                </div>
+              </div>
+
+              <!-- ABA 3: MAGIAS E RITUAIS -->
+              <div id="tabContent-spells" class="hidden space-y-4">
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-star-and-crescent text-astral-400"></i> Magias, Rituais de Três Velas & Feitiços
+                      </h3>
+                      <p class="text-xs text-slate-400">Rituais ocultistas, adivinhações, invocações e feitiços preparados</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('spells')" class="px-3 py-1.5 rounded-lg bg-astral-600/30 hover:bg-astral-600/50 border border-astral-400/40 text-astral-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Nova Magia / Ritual
+                    </button>
+                  </div>
+                  <div id="spellsListContainer" class="space-y-3.5"></div>
+                </div>
+              </div>
+
+              <!-- ABA 4: MUTAÇÕES E CORRUPÇÃO -->
+              <div id="tabContent-mutations" class="hidden space-y-4">
+                <div class="victorian-card rounded-xl p-4 sm:p-5">
+                  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
+                    <div>
+                      <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                        <i class="fa-solid fa-biohazard text-crimson-400"></i> Mutações, Corrupção & Sinais de Perda de Controle
+                      </h3>
+                      <p class="text-xs text-slate-400">Acompanhe alterações corporais, sussurros mentais, maldições e inclinação mística</p>
+                    </div>
+                    <button onclick="app.addCollectionItem('mutations')" class="px-3 py-1.5 rounded-lg bg-crimson-600/30 hover:bg-crimson-600/50 border border-crimson-400/40 text-crimson-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                      <i class="fa-solid fa-plus"></i> Registrar Mutação
+                    </button>
+                  </div>
+
+                  <div class="bg-obsidian-950/80 border border-crimson-500/30 rounded-xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-xs font-display uppercase tracking-wider text-crimson-400 font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-skull-crossbones"></i> Grau de Corrupção / Inclinação Abissal
+                      </span>
+                      <div class="flex items-center gap-1.5">
+                        <input id="charCorruptionLevel" type="number" min="0" max="100" oninput="app.updateField('corruptionLevel', Number(this.value))"
+                          class="w-14 text-right px-2 py-0.5 rounded bg-obsidian-900 border border-crimson-500/40 text-crimson-300 font-bold text-xs" />
+                        <span class="text-xs text-crimson-400 font-bold">%</span>
+                      </div>
+                    </div>
+                    <div class="w-full h-2.5 bg-obsidian-900 rounded-full overflow-hidden border border-slate-800 mb-2">
+                      <div id="corruptionProgressBar" class="h-full bg-gradient-to-r from-eldritch-600 via-crimson-600 to-rose-500 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <input id="charCorruptionSlider" type="range" min="0" max="100" oninput="app.updateField('corruptionLevel', Number(this.value))"
+                      class="w-full accent-crimson-500 cursor-pointer h-1.5 bg-obsidian-800 rounded-lg" />
+                  </div>
+
+                  <div id="mutationsListContainer" class="space-y-3.5"></div>
+                </div>
+              </div>
+
+              <!-- ABA 5: SEMANA / ENTRE-MISSÕES (DOWNTIME) -->
+              <div id="tabContent-downtime" class="hidden space-y-4">
+                <div id="downtimeTabContainer"></div>
+              </div>
+
+              <!-- ABA 6: NOTAS, ATUAÇÃO E RESUMO DA POÇÃO -->
+              <div id="tabContent-notes" class="hidden space-y-4">
+                <div class="victorian-card rounded-xl p-4 sm:p-5 space-y-4">
+                  <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <label class="block font-display font-bold text-sm text-eldritch-300 uppercase tracking-wider">
+                        <i class="fa-solid fa-flask-vial text-amber-400 mr-1.5"></i> Resumos de Alteração da Poção (Progressão de Sequência)
+                      </label>
+                      <button onclick="app.openSequenceProgressionModal()" class="gm-only-action text-xs text-brass-300 hover:underline font-semibold">
+                        + Novo Registro de Sequência
+                      </button>
+                    </div>
+                    <div id="sequenceSummariesNotesContainer"></div>
+                  </div>
+
+                  <div>
+                    <label class="block font-display font-bold text-sm text-brass-200 uppercase tracking-wider mb-1.5">
+                      <i class="fa-solid fa-masks-theater text-brass-400 mr-1.5"></i> Princípios do Método de Atuação (Acting Method)
+                    </label>
+                    <textarea id="charActingNotes" rows="5" oninput="app.updateField('actingNotes', this.value)"
+                      placeholder="1. Um Vidente nunca deve confiar cegamente no que vê..."
+                      class="sheet-input w-full p-3 rounded-xl text-sm leading-relaxed"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block font-display font-bold text-sm text-astral-400 uppercase tracking-wider mb-1.5">
+                      <i class="fa-solid fa-anchor mr-1.5"></i> Âncoras, Família & Conexões Mundanas
+                    </label>
+                    <textarea id="charAnchors" rows="3" oninput="app.updateField('anchors', this.value)"
+                      placeholder="Pessoas, crenças, promessas e laços que mantêm a humanidade do personagem..."
+                      class="sheet-input w-full p-3 rounded-xl text-sm leading-relaxed"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block font-display font-bold text-sm text-slate-200 uppercase tracking-wider mb-1.5">
+                      <i class="fa-solid fa-book-skull text-eldritch-400 mr-1.5"></i> Diário de Investigação, Fórmulas & Antecedentes
+                    </label>
+                    <textarea id="charBackstory" rows="6" oninput="app.updateField('backstory', this.value)"
+                      placeholder="História do personagem, pistas da campanha, fórmulas de poções descobertas..."
+                      class="sheet-input w-full p-3 rounded-xl text-sm leading-relaxed"></textarea>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- SIDEBAR: ORÁCULO DE DADOS -->
+    <aside id="diceSidebar" class="w-full xl:w-96 shrink-0 flex flex-col gap-4">
+      <div class="victorian-card-gold rounded-xl p-4 flex flex-col h-[680px] xl:sticky xl:top-28">
+        <div class="flex items-center justify-between border-b border-brass-400/25 pb-3 mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-dice-d20 text-brass-400 text-lg"></i>
+            <div>
+              <h2 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200">Oráculo de Dados</h2>
+              <p class="text-[11px] text-slate-400">Histórico sincronizado da campanha</p>
+            </div>
+          </div>
+          <button onclick="app.clearDiceLogs()" title="Limpar Histórico da Mesa (Apenas Mestre)" class="px-2 py-1 rounded text-[11px] bg-obsidian-800 hover:bg-crimson-950/60 text-slate-400 hover:text-crimson-300 border border-slate-700 transition-all">
+            <i class="fa-solid fa-broom mr-1"></i> Limpar
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-1.5 bg-obsidian-950 p-1 rounded-lg border border-slate-800 mb-3">
+          <button id="rollMode-normal" onclick="app.setRollMode('normal')" class="py-1.5 rounded-md text-xs font-bold transition-all bg-brass-500 text-obsidian-950">Normal</button>
+          <button id="rollMode-advantage" onclick="app.setRollMode('advantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-emerald-300">Vantagem</button>
+          <button id="rollMode-disadvantage" onclick="app.setRollMode('disadvantage')" class="py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-crimson-300">Desvantagem</button>
+        </div>
+
+        <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3 mb-3 space-y-2.5">
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">Qtd:</span>
+              <input id="customDiceCount" type="number" min="1" max="20" value="1" class="sheet-input w-12 text-center py-1 rounded font-bold text-brass-200" />
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">Mod:</span>
+              <input id="customDiceMod" type="number" value="0" class="sheet-input w-14 text-center py-1 rounded font-bold text-cyan-300" />
+            </div>
+            <label class="inline-flex items-center gap-1 text-[11px] text-amber-300 cursor-pointer">
+              <input id="useBonusDieNow" type="checkbox" class="accent-amber-400 rounded" />
+              <span>+Bônus Dado</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-7 gap-1.5">
+            <button onclick="app.rollCustomDie(4)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d4</button>
+            <button onclick="app.rollCustomDie(6)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d6</button>
+            <button onclick="app.rollCustomDie(8)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d8</button>
+            <button onclick="app.rollCustomDie(10)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d10</button>
+            <button onclick="app.rollCustomDie(12)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/30 text-brass-200 font-display font-bold text-xs transition-all hover:scale-105">d12</button>
+            <button onclick="app.rollCustomDie(20)" class="py-2 rounded-lg bg-gradient-to-b from-brass-500/30 to-obsidian-800 hover:from-brass-500/50 border border-brass-400 text-brass-200 font-display font-extrabold text-xs transition-all hover:scale-105">d20</button>
+            <button onclick="app.rollCustomDie(100)" class="py-2 rounded-lg bg-obsidian-800 hover:bg-eldritch-500/20 border border-eldritch-400/40 text-eldritch-300 font-display font-bold text-[11px] transition-all hover:scale-105">d100</button>
+          </div>
+        </div>
+
+        <div id="diceLogFeed" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- =========================================================================
+       MODAL 0: PORTAL DE AUTENTICAÇÃO E SEGURANÇA (LOGIN JOGADORES & MESTRE)
+       ========================================================================= -->
+  <div id="authGateModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-md p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-md w-full p-6 space-y-4 border border-brass-400/60 animate-dice">
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 rounded-xl bg-obsidian-900 border border-brass-400/50 mx-auto flex items-center justify-center text-brass-300 shadow-lg">
+          <i class="fa-solid fa-eye text-xl"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-brass-200 uppercase tracking-wider">Portal do Nevoeiro Cinza</h3>
+        <p class="text-xs text-slate-400">Entre como Jogador (crie suas fichas) ou como Mestre (controle total da campanha)</p>
+      </div>
+
+      <!-- Alternador Entrar vs Criar Conta -->
+      <div class="flex bg-obsidian-950 p-1 rounded-xl border border-slate-800">
+        <button id="authTabBtn-login" onclick="app.switchAuthModalTab('login')" class="flex-1 py-2 rounded-lg font-display font-bold text-xs uppercase bg-brass-400 text-obsidian-950 shadow">
+          Entrar na Mesa
+        </button>
+        <button id="authTabBtn-register" onclick="app.switchAuthModalTab('register')" class="flex-1 py-2 rounded-lg font-display font-semibold text-xs uppercase text-slate-400 hover:text-slate-200">
+          Criar Conta
+        </button>
+      </div>
+
+      <div id="authErrorBanner" class="hidden p-2.5 rounded-lg bg-crimson-950/90 border border-crimson-500 text-crimson-200 text-xs text-center font-medium"></div>
+
+      <!-- Painel 1: Login -->
+      <div id="authLoginFormPanel" class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">E-mail ou Usuário</label>
+          <input id="loginEmailInput" type="text" value="mestre@grimorio.rpg" placeholder="Ex: mestre@grimorio.rpg" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">Senha</label>
+          <input id="loginPasswordInput" type="password" value="mestre123" placeholder="Sua senha..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+
+        <button onclick="app.handleLoginSubmit()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brass-400 to-brass-500 hover:from-brass-300 hover:to-brass-400 text-obsidian-950 font-display font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all">
+          <i class="fa-solid fa-right-to-bracket mr-1.5"></i> Acessar Grimório
+        </button>
+
+        <!-- Acessos Rápidos para Testar Mestre vs Jogadores -->
+        <div class="pt-3 border-t border-slate-800/90 space-y-2">
+          <span class="block text-[10px] font-display uppercase tracking-wider text-slate-400 text-center">
+            Acesso Rápido de Demonstração (1 Clique):
+          </span>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button onclick="app.quickDemoLogin('mestre@grimorio.rpg', 'mestre123')" class="p-2 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 border border-amber-400/40 text-amber-200 text-[10px] font-bold flex flex-col items-center gap-0.5">
+              <i class="fa-solid fa-crown text-amber-400"></i>
+              <span>Mestre</span>
+            </button>
+            <button onclick="app.quickDemoLogin('audrey@grimorio.rpg', 'jogador123')" class="p-2 rounded-lg bg-obsidian-900 hover:bg-obsidian-800 border border-astral-500/30 text-astral-200 text-[10px] font-bold flex flex-col items-center gap-0.5">
+              <i class="fa-solid fa-user text-astral-400"></i>
+              <span>Jogadora 1</span>
+            </button>
+            <button onclick="app.quickDemoLogin('alger@grimorio.rpg', 'jogador123')" class="p-2 rounded-lg bg-obsidian-900 hover:bg-obsidian-800 border border-emerald-500/30 text-emerald-200 text-[10px] font-bold flex flex-col items-center gap-0.5">
+              <i class="fa-solid fa-user text-emerald-400"></i>
+              <span>Jogador 2</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel 2: Cadastro de Nova Conta -->
+      <div id="authRegisterFormPanel" class="hidden space-y-3">
+        <div>
+          <label class="block text-[11px] font-display uppercase text-slate-300 mb-1">Seu Nome / Apelido na Mesa *</label>
+          <input id="regNameInput" type="text" placeholder="Ex: Hugo / Leonard" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">E-mail de Login *</label>
+          <input id="regEmailInput" type="email" placeholder="seuemail@exemplo.com" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">Senha *</label>
+            <input id="regPasswordInput" type="password" placeholder="Mínimo 4 caracteres" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-display uppercase text-eldritch-300 mb-1">Papel na Mesa</label>
+            <select id="regRoleSelect" onchange="app.toggleRegisterRoleMasterKeyField(this.value)" class="sheet-input w-full px-3 py-2 rounded-lg text-xs font-bold text-brass-200">
+              <option value="player" selected>Jogador (Cria Fichas)</option>
+              <option value="gm">Mestre da Campanha</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="registerMasterSecretBox" class="hidden bg-obsidian-950/90 border border-amber-500/40 rounded-xl p-3 space-y-1">
+          <label class="block text-[10px] font-display uppercase text-amber-300 font-bold">
+            <i class="fa-solid fa-lock mr-1"></i> Código Secreto do Mestre *
+          </label>
+          <input id="regMasterCodeInput" type="password" placeholder="Chave secreta (padrão inicial: tolo)" class="sheet-input w-full px-3 py-1.5 rounded text-xs" />
+          <p class="text-[10px] text-slate-400">Impede que jogadores comuns criem contas com acesso ao Painel do Mestre.</p>
+        </div>
+
+        <button onclick="app.handleRegisterSubmit()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-obsidian-950 font-display font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all">
+          <i class="fa-solid fa-user-plus mr-1.5"></i> Cadastrar & Entrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: PERSONALIZAÇÃO DE TEMAS, CORES E FUNDO POR USUÁRIO
+       ========================================================================= -->
+  <div id="themeCustomizerModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-xl w-full p-6 space-y-4 border border-brass-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/20 pb-3">
+        <div>
+          <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Estética Individual por Conta</span>
+          <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-palette text-brass-400"></i> Personalizar Tema, Cores & Fundo
+          </h3>
+        </div>
+        <button onclick="app.closeThemeCustomizerModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Escolha seu tema favorito. Suas cores ficam salvas no seu perfil. <strong>Nota:</strong> Quando o Mestre iniciar um combate, o site mudará temporariamente para o <em>Modo Macabro</em> e voltará automaticamente para este seu tema assim que o combate terminar!
+      </p>
+
+      <div class="space-y-2">
+        <label class="block text-[11px] font-display uppercase tracking-wider text-brass-300">Temas Predefinidos:</label>
+        <div id="themePresetsGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+      </div>
+
+      <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h4 class="font-display font-bold text-xs uppercase text-slate-300">Customização Avançada (Cores & Imagem de Fundo):</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Cor de Fundo Base</label>
+            <input id="customThemeBgColor" type="color" oninput="app.updateCustomThemeField('bgBase', this.value)"
+              class="w-full h-9 rounded cursor-pointer bg-obsidian-900 border border-slate-700 p-1" />
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Cor de Destaque / Bordas</label>
+            <input id="customThemeAccentColor" type="color" oninput="app.updateCustomThemeField('accentColor', this.value)"
+              class="w-full h-9 rounded cursor-pointer bg-obsidian-900 border border-slate-700 p-1" />
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Atmosfera Luminosa</label>
+            <select id="customThemePatternSelect" onchange="app.updateCustomThemeField('bgPattern', this.value)"
+              class="sheet-input w-full h-9 px-2.5 rounded text-xs">
+              <option value="nevoeiro">Nevoeiro Cinza</option>
+              <option value="estrelas">Noite Estrelada</option>
+              <option value="catedral">Luz de Catedral</option>
+              <option value="abismo">Profundezas do Mar</option>
+              <option value="carmesim">Lua Carmesim</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-slate-400 mb-1">URL de Papel de Parede Customizado (Opcional)</label>
+          <input id="customThemeBgImageUrl" type="url" oninput="app.updateCustomThemeField('customBgImage', this.value)"
+            placeholder="https://exemplo.com/minha-imagem-vitoriana.jpg (deixe vazio p/ gradiente)"
+            class="sheet-input w-full px-3 py-1.5 rounded text-xs" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+        <button onclick="app.resetUserThemeToDefault()" class="px-3 py-1.5 rounded-lg bg-obsidian-900 hover:bg-obsidian-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs">
+          Restaurar Padrão
+        </button>
+        <button onclick="app.closeThemeCustomizerModal()" class="px-5 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs">
+          Concluir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: INTEGRAÇÃO COM BANCO DE DADOS GRATUITO (FIREBASE) & HOSPEDAGEM
+       ========================================================================= -->
+  <div id="cloudSetupModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col p-6 border border-astral-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/20 pb-3 mb-4 shrink-0">
+        <div>
+          <span class="text-[10px] font-display uppercase tracking-widest text-astral-400 block">Infraestrutura 100% Gratuita em Tempo Real</span>
+          <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-up text-astral-400"></i> Banco de Dados Cloud (Firebase) & Hospedagem Gratuita
+          </h3>
+        </div>
+        <button onclick="app.closeCloudDatabaseModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs text-slate-300">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3.5 space-y-2">
+            <h4 class="font-display font-bold text-brass-200 uppercase flex items-center gap-1.5">
+              <i class="fa-solid fa-database text-amber-400"></i> Passo 1: Criar Banco Gratuito (2 min)
+            </h4>
+            <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-300 leading-relaxed">
+              <li>Acesse <strong>console.firebase.google.com</strong> (plano gratuito Spark, sem custo).</li>
+              <li>Clique em <strong>Criar Projeto</strong> e registre um App Web (ícone <code>&lt;/&gt;</code>).</li>
+              <li>No menu <strong>Authentication</strong> → <em>Sign-in method</em>, ative <strong>Anônimo</strong> (e/ou <em>E-mail/Senha</em>).</li>
+              <li>No menu <strong>Firestore Database</strong>, clique em <strong>Criar banco de dados</strong> e cole as regras de segurança do pacote no aba <em>Regras</em>.</li>
+              <li>Copie o bloco <code>firebaseConfig</code> gerado pelo Firebase e cole abaixo!</li>
+            </ol>
+          </div>
+
+          <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3.5 space-y-2">
+            <h4 class="font-display font-bold text-emerald-300 uppercase flex items-center gap-1.5">
+              <i class="fa-solid fa-globe text-emerald-400"></i> Passo 2: Hospedar o Site de Graça
+            </h4>
+            <ul class="space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
+              <li><strong>Opção A (GitHub Pages - Recomendado):</strong> Suba os arquivos do ZIP em um repositório no GitHub e ative <em>Settings → Pages</em>. Você receberá um link público gratuito (ex: <code>seu-usuario.github.io/site-rpg</code>).</li>
+              <li><strong>Opção B (Netlify Drop / Vercel):</strong> Arraste a pasta extraída do ZIP para <strong>app.netlify.com/drop</strong> e ganhe um link HTTPS instantâneo para mandar aos seus jogadores!</li>
+              <li><strong>Arquivos Prontos no ZIP:</strong> O pacote já inclui <code>firebase.json</code> e <code>firestore.rules</code> configurados.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="font-display font-bold text-xs uppercase text-brass-300">
+              Cole aqui o seu <code class="text-astral-300">firebaseConfig</code> (JSON) para sincronizar toda a mesa em tempo real:
+            </label>
+            <button onclick="app.downloadDatabaseBackup()" class="px-2.5 py-1 rounded bg-obsidian-800 hover:bg-brass-500/20 text-brass-200 border border-brass-400/30 text-[11px] font-semibold">
+              <i class="fa-solid fa-download mr-1"></i> Baixar Backup JSON
+            </button>
+          </div>
+          <textarea id="firebaseConfigJsonInput" rows="6"
+            placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "seu-projeto.firebaseapp.com",
+  "projectId": "seu-projeto",
+  "storageBucket": "seu-projeto.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}'
+            class="sheet-input w-full p-3 rounded-xl font-mono text-xs text-astral-200"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-800 shrink-0">
+        <button onclick="app.closeCloudDatabaseModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 text-slate-300 text-xs font-semibold">Fechar</button>
+        <button onclick="app.saveAndConnectFirebaseConfig()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-astral-500 to-cyan-500 hover:from-astral-400 hover:to-cyan-400 text-obsidian-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg">
+          <i class="fa-solid fa-plug-circle-check"></i> Salvar & Conectar ao Banco Cloud
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRIAR NOVA FICHA -->
+  <div id="newCharModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-lg w-full p-6 space-y-4 border border-brass-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/20 pb-3">
+        <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+          <i class="fa-solid fa-scroll text-brass-400"></i> Criar Nova Ficha Beyonder
+        </h3>
+        <button onclick="app.closeNewCharacterModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-display uppercase text-brass-300 mb-1">Nome do Personagem *</label>
+          <input id="modalCharName" type="text" placeholder="Ex: Sherlock Moriarty / Klein Moretti" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-display uppercase text-slate-300 mb-1">Nome do Jogador</label>
+            <input id="modalCharPlayer" type="text" placeholder="Ex: Lucas" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-display uppercase text-eldritch-300 mb-1">Caminho Beyonder</label>
+            <input id="modalCharPathway" list="beyonderPathwaysList" type="text" placeholder="Ex: Vidente" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-display uppercase text-brass-300 mb-1">Sequência Inicial</label>
+            <select id="modalCharSeq" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm">
+              <option value="9" selected>Sequência 9</option>
+              <option value="8">Sequência 8</option>
+              <option value="7">Sequência 7</option>
+              <option value="6">Sequência 6</option>
+              <option value="5">Sequência 5</option>
+              <option value="4">Sequência 4</option>
+              <option value="Humana">Humano Comum</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-display uppercase text-brass-300 mb-1">Nome da Poção / Título</label>
+            <input id="modalCharPotion" type="text" placeholder="Ex: Vidente, Palhaço, Marinheiro..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="app.closeNewCharacterModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="app.confirmCreateCharacter()" class="px-5 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-bold text-xs sm:text-sm flex items-center gap-2">
+          <i class="fa-solid fa-check"></i> Criar Ficha
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CRIAR NOVA CAMPANHA (MESTRE) -->
+  <div id="createCampaignModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-xl w-full p-6 space-y-4 border border-brass-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/20 pb-3">
+        <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+          <i class="fa-solid fa-compass text-brass-400"></i> Criar Nova Campanha & Escalar Fichas
+        </h3>
+        <button onclick="app.closeCreateCampaignModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-display uppercase text-brass-300 mb-1">Nome da Campanha *</label>
+          <input id="modalCampaignName" type="text" placeholder="Ex: Sombras de Backlund / O Clube de Tarô" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-display uppercase text-slate-300 mb-1">Descrição / Ambientação</label>
+          <textarea id="modalCampaignDesc" rows="2" placeholder="Resumo da campanha, regras de descanso e objetivos da equipe..." class="sheet-input w-full p-2.5 rounded-lg text-xs"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-display uppercase text-brass-300 mb-1.5">
+            Escolha quais fichas estarão presentes na campanha (Combate & Rolagens):
+          </label>
+          <div id="modalCampaignCharsChecklist" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="app.closeCreateCampaignModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="app.confirmCreateCampaign()" class="px-5 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-bold text-xs sm:text-sm flex items-center gap-2">
+          <i class="fa-solid fa-check"></i> Criar Campanha
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PASSAR A SEMANA DA CAMPANHA & RECUPERAR STATUS (MESTRE) -->
+  <div id="passWeekModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col p-5 sm:p-6 border border-emerald-500/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/25 pb-3 mb-4 shrink-0">
+        <div>
+          <span class="text-[10px] font-display uppercase tracking-widest text-emerald-400 block">Fechamento Semanal do Mestre</span>
+          <h3 id="passWeekModalTitleSpan" class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+            Passar a Semana dos Jogadores
+          </h3>
+        </div>
+        <button onclick="app.closePassWeekModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="text-xs font-display font-bold uppercase text-brass-300">
+              <i class="fa-solid fa-scroll mr-1"></i> Resumo Geral da Semana para a Mesa:
+            </label>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[10px] text-slate-400">Predefinir p/ Todos:</span>
+              <button onclick="app.applyPassWeekPresetAll(5, 5, 15, 5)" class="px-2 py-0.5 rounded bg-obsidian-800 hover:bg-brass-500/20 text-brass-200 border border-brass-400/30 text-[10px] font-bold">
+                Descanso Padrão (+5 PV, +5 SAN, +15 PE, +5£)
+              </button>
+              <button onclick="app.applyPassWeekPresetAll(999, 10, 999, 10)" class="px-2 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
+                Recuperação Total (PV/PE Máx, +10 SAN, +10£)
+              </button>
+            </div>
+          </div>
+          <textarea id="passWeekGeneralSummaryInput" rows="2"
+            placeholder="Escreva o panorama geral da semana que será entregue no histórico de todos os jogadores da campanha..."
+            class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100"></textarea>
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-300">
+            Escolha quanto cada jogador recupera (Vida, Sanidade, Espiritualidade e Dinheiro) e revise o resumo:
+          </h4>
+          <div id="passWeekPlayersConfigContainer" class="space-y-3 pt-1"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-800 shrink-0">
+        <button onclick="app.closePassWeekModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="app.confirmPassWeek()" class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-obsidian-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg">
+          <i class="fa-solid fa-forward-fast"></i> Confirmar & Entregar Resumo da Semana
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PROGREDIR SEQUÊNCIA & RESUMO DO QUE FOI ALTERADO NA POÇÃO (MESTRE) -->
+  <div id="sequenceProgressionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-xl w-full p-6 space-y-4 border border-eldritch-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/20 pb-3">
+        <div>
+          <span class="text-[10px] font-display uppercase tracking-widest text-eldritch-300 block">Ritual de Avanço Beyonder</span>
+          <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-flask-vial text-amber-400"></i> Progredir Sequência & Resumo da Poção
+          </h3>
+        </div>
+        <button onclick="app.closeSequenceProgressionModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs">
+        <div>
+          <span class="text-slate-400">Personagem:</span>
+          <strong id="seqProgCharNameSpan" class="text-brass-200 ml-1">Klein Moretti</strong>
+        </div>
+        <span id="seqProgCurrentBadge" class="px-2.5 py-0.5 rounded bg-eldritch-900/80 text-eldritch-200 border border-eldritch-500/40 font-bold">
+          Seq. 9
+        </span>
+      </div>
+
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-display uppercase text-brass-300 mb-1">Nova Sequência Alcançada *</label>
+            <select id="seqProgNewSequence" class="sheet-input w-full px-3 py-2 rounded-lg text-sm font-bold text-brass-200">
+              <option value="9">Sequência 9</option>
+              <option value="8">Sequência 8</option>
+              <option value="7">Sequência 7</option>
+              <option value="6">Sequência 6</option>
+              <option value="5">Sequência 5</option>
+              <option value="4">Sequência 4 (Semideus)</option>
+              <option value="3">Sequência 3 (Santo)</option>
+              <option value="2">Sequência 2 (Anjo)</option>
+              <option value="1">Sequência 1 (Arcanjo)</option>
+              <option value="0">Sequência 0 (Deus Verdadeiro)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-display uppercase text-brass-300 mb-1">Novo Nome da Poção / Título *</label>
+            <input id="seqProgNewPotionName" type="text" placeholder="Ex: Palhaço, Mágico, Sem Rosto..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm font-bold text-amber-200" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-display uppercase text-amber-300 mb-1">
+            Resumo Rápido de Atributos / Poderes Alterados
+          </label>
+          <input id="seqProgChangesOverview" type="text" placeholder="Ex: +10 PV Máx, +15 PE Máx, Habilidade Transferência de Ferimentos..."
+            class="sheet-input w-full px-3.5 py-2 rounded-lg text-xs text-amber-200" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-display uppercase text-eldritch-300 mb-1">
+            Descrição Detalhada para o Jogador (O que mudou na poção e no corpo/espírito) *
+          </label>
+          <textarea id="seqProgSummaryText" rows="4"
+            placeholder="Descreva para o jogador como foi a evolução da poção, quais poderes antigos sofreram mutação ou fortalecimento, novas habilidades despertadas e novos princípios de atuação..."
+            class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed"></textarea>
+        </div>
+
+        <label class="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+          <input id="seqProgResetDigestion" type="checkbox" checked class="accent-amber-400 rounded" />
+          <span>Zerar barra de digestão da nova poção (0%) ao concluir o avanço</span>
+        </label>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button onclick="app.closeSequenceProgressionModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="app.confirmSequenceProgression()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-eldritch-500 to-purple-600 hover:from-eldritch-400 hover:to-purple-500 text-white font-display font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Confirmar Avanço & Entregar Resumo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMAR EXCLUSÃO -->
+  <div id="deleteCharModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="victorian-card rounded-2xl max-w-md w-full p-6 space-y-4 border border-crimson-500/50">
+      <div class="flex items-center gap-3 text-crimson-400">
+        <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+        <h3 class="font-display font-bold text-lg">Excluir Ficha Beyonder?</h3>
+      </div>
+      <p class="text-sm text-slate-300">
+        Tem certeza que deseja excluir permanentemente a ficha de <strong id="deleteCharNameSpan" class="text-brass-200"></strong>? Esta ação removerá a ficha para todos na mesa.
+      </p>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button onclick="app.closeDeleteCharacterModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="app.confirmDeleteCharacter()" class="px-4 py-2 rounded-lg bg-crimson-600 hover:bg-crimson-500 text-white font-bold text-xs">Sim, Excluir Ficha</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- PONTO DE ENTRADA MODULAR ES6 -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
