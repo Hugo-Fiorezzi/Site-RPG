@@ -31,6 +31,18 @@ const LOCAL_SESSION_KEY = 'grimorio_beyonder_session_v1';
 const LOCAL_FIREBASE_CFG_KEY = 'grimorio_beyonder_firebase_config_v1';
 const LOCAL_GM_SECRET_HASH_KEY = 'grimorio_beyonder_gm_secret_hash_v1';
 
+// Opcional: Cole aqui as credenciais do seu Firebase para conectar todos automaticamente sem precisar configurar pelo navegador
+const FIXED_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBVZufLIUiqbSUfXOL3HURMaY9LohT34pY",
+  authDomain: "grimorio-beyonder.firebaseapp.com",
+  databaseURL: "https://grimorio-beyonder-default-rtdb.firebaseio.com",
+  projectId: "grimorio-beyonder",
+  storageBucket: "grimorio-beyonder.firebasestorage.app",
+  messagingSenderId: "182655045756",
+  appId: "1:182655045756:web:fef1fe8bf8e14e729c39f9",
+  measurementId: "G-KTNGLWCSL3"
+};
+
 export class StorageService {
   constructor({
     onCharactersChanged,
@@ -58,6 +70,9 @@ export class StorageService {
 
   getSavedFirebaseConfig() {
     try {
+      if (FIXED_FIREBASE_CONFIG && FIXED_FIREBASE_CONFIG.apiKey && FIXED_FIREBASE_CONFIG.projectId) {
+        return FIXED_FIREBASE_CONFIG;
+      }
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
         return typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
       }
@@ -119,6 +134,139 @@ export class StorageService {
         localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersMap));
       }
     } catch (_) {}
+  }
+
+  getAllUsersList() {
+    try {
+      const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+      return Object.values(usersMap).sort((a, b) => {
+        if (a.role === 'gm' && b.role !== 'gm') return -1;
+        if (a.role !== 'gm' && b.role === 'gm') return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async updateUserAccount(targetUid, { name, email, newPassword, role }) {
+    try {
+      const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+      const target = usersMap[targetUid];
+      if (!target) {
+        return { ok: false, error: 'Conta não encontrada.' };
+      }
+
+      const cleanEmail = String(email || target.email || '').toLowerCase().trim();
+      const cleanName = String(name || target.name || '').trim() || 'Beyonder';
+      if (!cleanEmail) {
+        return { ok: false, error: 'O e-mail ou login não pode ficar vazio.' };
+      }
+
+      const conflict = Object.values(usersMap).find(
+        u => u.uid !== targetUid && (u.email || '').toLowerCase() === cleanEmail
+      );
+      if (conflict) {
+        return { ok: false, error: 'Já existe outra conta utilizando este e-mail/login.' };
+      }
+
+      target.name = cleanName;
+      target.email = cleanEmail;
+      if (role === 'gm' || role === 'player') {
+        target.role = role;
+      }
+      if (newPassword && String(newPassword).trim().length > 0) {
+        target.passwordHash = await sha256Hash(String(newPassword).trim());
+      }
+      target.updatedAt = Date.now();
+
+      usersMap[targetUid] = target;
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersMap));
+
+      if (this.currentUser && this.currentUser.uid === targetUid) {
+        this.currentUser = { ...target };
+        localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(this.currentUser));
+        this.onAuthChanged(this.currentUser);
+      }
+
+      if (this.isCloudConnected && this.db) {
+        try {
+          const userDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'users', targetUid);
+          await setDoc(userDocRef, target, { merge: true });
+        } catch (_) {}
+      }
+
+      return { ok: true, user: target };
+    } catch (e) {
+      return { ok: false, error: 'Erro ao atualizar a conta.' };
+    }
+  }
+
+  async adminCreateUserAccount({ name, email, password, role }) {
+    const cleanName = String(name || '').trim() || 'Beyonder';
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const cleanPass = String(password || '').trim();
+    if (!cleanEmail || !cleanPass) {
+      return { ok: false, error: 'Informe o e-mail/usuário e a senha inicial da conta.' };
+    }
+
+    try {
+      const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+      const existing = Object.values(usersMap).find(u => (u.email || '').toLowerCase() === cleanEmail);
+      if (existing) {
+        return { ok: false, error: 'Já existe uma conta cadastrada com este e-mail/usuário.' };
+      }
+
+      const passHash = await sha256Hash(cleanPass);
+      const uid = `u_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+      const newUserProfile = {
+        uid,
+        name: cleanName,
+        email: cleanEmail,
+        role: role === 'gm' ? 'gm' : 'player',
+        passwordHash: passHash,
+        theme: { ...DEFAULT_USER_THEME },
+        createdAt: Date.now()
+      };
+
+      usersMap[uid] = newUserProfile;
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersMap));
+
+      if (this.isCloudConnected && this.db) {
+        try {
+          const userDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'users', uid);
+          await setDoc(userDocRef, newUserProfile);
+        } catch (_) {}
+      }
+
+      return { ok: true, user: newUserProfile };
+    } catch (_) {
+      return { ok: false, error: 'Não foi possível criar a conta.' };
+    }
+  }
+
+  async deleteUserAccount(targetUid) {
+    if (!targetUid) return { ok: false, error: 'ID inválido.' };
+    if (this.currentUser && this.currentUser.uid === targetUid) {
+      return { ok: false, error: 'Você não pode excluir a conta na qual está logado no momento.' };
+    }
+    try {
+      const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+      if (!usersMap[targetUid]) {
+        return { ok: false, error: 'Conta não encontrada.' };
+      }
+      delete usersMap[targetUid];
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersMap));
+
+      if (this.isCloudConnected && this.db) {
+        try {
+          await deleteDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'users', targetUid));
+        } catch (_) {}
+      }
+      return { ok: true };
+    } catch (_) {
+      return { ok: false, error: 'Erro ao remover conta.' };
+    }
   }
 
   async verifyMasterInviteCode(codeInput) {
@@ -187,7 +335,7 @@ export class StorageService {
 
   restoreUserSession() {
     try {
-      const savedSession = JSON.parse(localStorage.getItem(LOCAL_SESSION_KEY) || 'null');
+      const savedSession = JSON.parse(localStorage.getItem(localStorage.getItem(LOCAL_SESSION_KEY) ? LOCAL_SESSION_KEY : 'null') || 'null');
       if (savedSession && savedSession.uid) {
         const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
         const fullProfile = usersMap[savedSession.uid] || savedSession;
@@ -214,7 +362,9 @@ export class StorageService {
             // Continua para validação via coleção de perfis do Firestore (permite funcionar mesmo só com Anonymous Auth habilitado)
           }
         }
-        const userIdKey = `u_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+        const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+        const matchedLocal = Object.values(usersMap).find(u => (u.email || '').toLowerCase() === cleanEmail);
+        const userIdKey = matchedLocal?.uid || `u_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
         const userDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'users', userIdKey);
         const snap = await getDoc(userDocRef);
         if (snap.exists()) {
@@ -438,6 +588,18 @@ export class StorageService {
     });
     this.unsubscribeFns.push(unsubChars);
 
+    const usersColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'users');
+    const unsubUsers = onSnapshot(usersColRef, (snapshot) => {
+      try {
+        const usersMap = JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '{}');
+        snapshot.forEach(docSnap => {
+          usersMap[docSnap.id] = docSnap.data();
+        });
+        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersMap));
+      } catch (_) {}
+    });
+    this.unsubscribeFns.push(unsubUsers);
+
     const logsColRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'dice_logs');
     const unsubLogs = onSnapshot(logsColRef, (snapshot) => {
       const list = [];
@@ -524,7 +686,7 @@ export class StorageService {
   }
 
   async saveCombatState(combatState) {
-    if (!combatState) return;
+    if (!combatState || !this.currentUser || this.currentUser.role !== 'gm') return;
     combatState.updatedAt = Date.now();
 
     try {
@@ -540,7 +702,7 @@ export class StorageService {
   }
 
   async saveCampaignState(campaignState) {
-    if (!campaignState) return;
+    if (!campaignState || !this.currentUser || this.currentUser.role !== 'gm') return;
     campaignState.updatedAt = Date.now();
 
     try {

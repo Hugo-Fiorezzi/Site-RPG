@@ -322,7 +322,7 @@ export function renderCombatBar(combatState, charactersMap, viewMode, campaignSt
       const sp = char.vitals?.sp || p.sp || { current: 20, max: 20 };
       const san = char.vitals?.san || p.san || { current: 80, max: 100 };
       const actions = char.turnActions || DEFAULT_TURN_ACTIONS;
-      const canControlThisChar = isGMUser || (currentUser && char.ownerUid === currentUser.uid) || char.id === activeCharacterId;
+      const canControlThisChar = isGMUser; // Apenas o Mestre pode editar a situação de combate na Barra de Combate
 
       return `
         <div class="w-72 shrink-0 rounded-xl p-3 flex flex-col justify-between transition-all ${turnHighlight}">
@@ -583,7 +583,10 @@ export function renderTopNavigation(charactersMap, activeCharacterId, viewMode, 
             ${isGMUser ? '<i class="fa-solid fa-crown mr-0.5"></i>Mestre' : '<i class="fa-solid fa-user mr-0.5"></i>Jogador'}
           </span>
           <span class="text-xs font-bold text-slate-200 max-w-[120px] truncate">${escapeHtml(currentUser.name || currentUser.email)}</span>
-          <button onclick="app.logout()" title="Sair / Trocar Conta" class="ml-1 text-slate-400 hover:text-crimson-400 text-xs px-1">
+          <button onclick="app.openAccountManagerModal()" title="Minha Conta / Alterar Login e Senha" class="ml-1 text-brass-300 hover:text-brass-100 text-xs px-1">
+            <i class="fa-solid fa-user-gear"></i>
+          </button>
+          <button onclick="app.logout()" title="Sair / Trocar Conta" class="text-slate-400 hover:text-crimson-400 text-xs px-1">
             <i class="fa-solid fa-right-from-bracket"></i>
           </button>
         </div>
@@ -2105,6 +2108,76 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
         <div class="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
           <span class="truncate">${escapeHtml(log.details || '')}</span>
           <span class="text-slate-500 shrink-0 ml-2">${escapeHtml(log.formula || '')}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+export function renderAccountManagerModalContent(allUsers, currentUser) {
+  if (!currentUser) return;
+  const isGM = currentUser.role === 'gm';
+
+  setInputValueIfNotFocused('myAccNameInput', currentUser.name || '');
+  setInputValueIfNotFocused('myAccEmailInput', currentUser.email || '');
+
+  const gmSection = document.getElementById('gmAccountsAdminSection');
+  const gmListContainer = document.getElementById('gmAllAccountsListContainer');
+  if (!gmSection || !gmListContainer) return;
+
+  if (!isGM) {
+    gmSection.classList.add('hidden');
+    return;
+  }
+
+  gmSection.classList.remove('hidden');
+
+  gmListContainer.innerHTML = (allUsers || []).map(u => {
+    const isSelf = u.uid === currentUser.uid;
+    const roleBadge = u.role === 'gm'
+      ? '<span class="px-2 py-0.5 rounded bg-amber-400 text-obsidian-950 font-display font-extrabold text-[10px] uppercase"><i class="fa-solid fa-crown mr-1"></i>Mestre</span>'
+      : '<span class="px-2 py-0.5 rounded bg-astral-950 text-astral-300 border border-astral-500/40 font-display font-bold text-[10px] uppercase"><i class="fa-solid fa-user mr-1"></i>Jogador</span>';
+
+    return `
+      <div class="bg-obsidian-950/90 border ${isSelf ? 'border-brass-400/60' : 'border-slate-800'} rounded-xl p-3 space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+          <div class="flex items-center gap-2">
+            ${roleBadge}
+            <span class="text-xs font-bold text-slate-200">${escapeHtml(u.name || 'Sem Nome')}</span>
+            ${isSelf ? '<span class="text-[10px] text-brass-300 font-semibold">(Sua Conta Atual)</span>' : ''}
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono text-slate-500">ID: ${escapeHtml(u.uid)}</span>
+            ${!isSelf ? `
+              <button onclick="app.adminDeleteAccount('${u.uid}')" title="Excluir esta conta" class="px-2 py-0.5 rounded bg-crimson-950/70 hover:bg-crimson-600 text-crimson-300 hover:text-white border border-crimson-500/40 text-[10px] font-bold transition-all">
+                <i class="fa-solid fa-trash-can mr-1"></i> Excluir
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Nome na Mesa</label>
+            <input id="admName_${u.uid}" type="text" value="${escapeHtml(u.name || '')}" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-brass-300 mb-0.5">Login (E-mail / Usuário)</label>
+            <input id="admEmail_${u.uid}" type="text" value="${escapeHtml(u.email || '')}" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-mono text-brass-200" />
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-amber-300 mb-0.5">Nova Senha (Opcional)</label>
+            <input id="admPass_${u.uid}" type="password" placeholder="Deixe vazio p/ manter" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <select id="admRole_${u.uid}" class="sheet-input px-2 py-1.5 rounded text-xs font-bold text-slate-200 flex-1">
+              <option value="player" ${u.role !== 'gm' ? 'selected' : ''}>Jogador</option>
+              <option value="gm" ${u.role === 'gm' ? 'selected' : ''}>Mestre</option>
+            </select>
+            <button onclick="app.adminSaveAccountChanges('${u.uid}')" class="px-3 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs shrink-0 transition-all">
+              <i class="fa-solid fa-floppy-disk mr-1"></i> Salvar
+            </button>
+          </div>
         </div>
       </div>
     `;

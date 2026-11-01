@@ -1,0 +1,30 @@
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Configurações de editores e IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs e relatórios de execução
+*.log
+npm-debug.log*
+yarn-debug.log*
+firebase-debug.log*
+firestore-debug.log*
+
+# Backups exportados e arquivos compactados
+*.zip
+*.tar.gz
+backup_grimorio_beyonder_*.json
+
+# Cache do Firebase CLI
+.firebase/
+
+# Dependências (caso venha a utilizar npm ou ferramentas de build)
+node_modules/
+dist/
+.cache/

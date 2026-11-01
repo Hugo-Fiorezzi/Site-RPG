@@ -52,7 +52,7 @@
             </button>
           </div>
           <p class="text-[11px] text-slate-400 hidden sm:block">
-            Mesa Online Gratuita & Banco de Dados • <span id="userDisplayId" class="font-mono text-slate-500">Conectando...</span>
+            Sistema Oficial de Fichas Beyonder & Campanhas • <span id="userDisplayId" class="font-mono text-slate-500">Online</span>
           </p>
         </div>
       </div>
@@ -84,8 +84,8 @@
           <span class="hidden md:inline">Tema</span>
         </button>
 
-        <!-- Configuração de Banco de Dados Cloud & Hospedagem Gratuita -->
-        <button onclick="app.openCloudDatabaseModal()" title="Conectar Banco de Dados Gratuito (Firebase) & Guia de Hospedagem" class="px-2.5 py-2 rounded-lg bg-obsidian-800 border border-astral-500/35 text-astral-300 hover:bg-astral-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all">
+        <!-- Botão de Servidor & Backup (oculto na barra pública; acessível pelo Painel do Mestre) -->
+        <button onclick="app.openCloudDatabaseModal()" title="Conexão do Servidor & Backup JSON (Exclusivo do Mestre)" class="hidden px-2.5 py-2 rounded-lg bg-obsidian-800 border border-astral-500/35 text-astral-300 hover:bg-astral-500/20 text-xs font-semibold items-center gap-1.5 transition-all">
           <i class="fa-solid fa-cloud-arrow-up text-astral-400"></i>
           <span class="hidden md:inline">Banco & Site Grátis</span>
         </button>
@@ -139,7 +139,7 @@
               </span>
             </div>
             <p class="text-[11px] text-slate-400">
-              Quando o Mestre inicia o combate, o tema de todos muda para um visual macabro e retorna ao tema de cada jogador quando desligado
+              Ordem de iniciativa sincronizada da campanha (edição exclusiva do Mestre)
             </p>
           </div>
         </div>
@@ -210,7 +210,13 @@
               <p class="text-[11px] text-slate-400">Defina a palavra-chave secreta exigida para criar novas contas com privilégio de Mestre (padrão inicial: <code class="text-brass-300">tolo</code>)</p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="app.openAccountManagerModal()" class="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-obsidian-950 font-display font-bold text-xs flex items-center gap-1.5 shadow transition-all">
+              <i class="fa-solid fa-users-gear"></i> Gerenciar Contas / Alterar Logins
+            </button>
+            <button onclick="app.openCloudDatabaseModal()" class="px-3 py-1.5 rounded-lg bg-obsidian-800 hover:bg-astral-500/20 border border-astral-500/40 text-astral-200 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
+              <i class="fa-solid fa-database text-astral-400"></i> Servidor & Backup
+            </button>
             <input id="gmNewSecretCodeInput" type="password" placeholder="Nova chave secreta do Mestre..." class="sheet-input px-3 py-1.5 rounded-lg text-xs w-52" />
             <button onclick="app.updateMasterSecretCodeFromGM()" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-xs font-bold transition-all">
               Salvar Chave
@@ -883,11 +889,11 @@
       <div id="authLoginFormPanel" class="space-y-3">
         <div>
           <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">E-mail ou Usuário</label>
-          <input id="loginEmailInput" type="text" value="mestre@grimorio.rpg" placeholder="Ex: mestre@grimorio.rpg" class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          <input id="loginEmailInput" type="text" placeholder="Digite seu e-mail ou usuário..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
         </div>
         <div>
           <label class="block text-[11px] font-display uppercase text-brass-300 mb-1">Senha</label>
-          <input id="loginPasswordInput" type="password" value="mestre123" placeholder="Sua senha..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
+          <input id="loginPasswordInput" type="password" placeholder="Digite sua senha..." class="sheet-input w-full px-3.5 py-2 rounded-lg text-sm" />
         </div>
 
         <button onclick="app.handleLoginSubmit()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brass-400 to-brass-500 hover:from-brass-300 hover:to-brass-400 text-obsidian-950 font-display font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all">
@@ -895,7 +901,7 @@
         </button>
 
         <!-- Acessos Rápidos para Testar Mestre vs Jogadores -->
-        <div class="pt-3 border-t border-slate-800/90 space-y-2">
+        <div id="quickDemoLoginSection" class="hidden pt-3 border-t border-slate-800/90 space-y-2">
           <span class="block text-[10px] font-display uppercase tracking-wider text-slate-400 text-center">
             Acesso Rápido de Demonstração (1 Clique):
           </span>
@@ -1026,6 +1032,105 @@
   </div>
 
   <!-- =========================================================================
+       MODAL: GERENCIAR CONTAS, ALTERAR LOGINS E SENHAS
+       ========================================================================= -->
+  <div id="accountManagerModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="victorian-card-gold rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col p-6 border border-brass-400/50 animate-dice">
+      <div class="flex items-center justify-between border-b border-brass-400/25 pb-3 mb-4 shrink-0">
+        <div>
+          <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Controle de Credenciais & Segurança</span>
+          <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-users-gear text-brass-400"></i> Gerenciar Contas, Logins & Senhas
+          </h3>
+        </div>
+        <button onclick="app.closeAccountManagerModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-5 pr-1">
+        <!-- SEÇÃO 1: MINHA CONTA ATUAL (QUALQUER USUÁRIO LOGADO PODE EDITAR SEU PRÓPRIO LOGIN/SENHA) -->
+        <div class="bg-obsidian-950/85 border border-brass-400/35 rounded-xl p-4 space-y-3">
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-300 flex items-center gap-2">
+            <i class="fa-solid fa-user-pen text-brass-400"></i> Alterar Meu Próprio Login e Senha
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[10px] uppercase text-slate-400 mb-1">Meu Nome na Mesa</label>
+              <input id="myAccNameInput" type="text" placeholder="Seu nome" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase text-brass-300 mb-1">Meu E-mail / Usuário de Login</label>
+              <input id="myAccEmailInput" type="text" placeholder="Ex: mestre@meurpg.com" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs font-mono text-brass-200" />
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase text-amber-300 mb-1">Nova Senha (Opcional)</label>
+              <input id="myAccNewPassInput" type="password" placeholder="Digite p/ trocar a senha..." class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs" />
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button onclick="app.saveMyOwnAccountChanges()" class="px-4 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs flex items-center gap-1.5 shadow">
+              <i class="fa-solid fa-check"></i> Atualizar Meu Login / Senha
+            </button>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 2: EXCLUSIVA DO MESTRE (GERENCIAR TODOS OS LOGINS DA MESA) -->
+        <div id="gmAccountsAdminSection" class="space-y-4">
+          <div class="bg-obsidian-950/85 border border-emerald-500/35 rounded-xl p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h4 class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 flex items-center gap-2">
+                <i class="fa-solid fa-user-plus text-emerald-400"></i> Criar Novo Login para Jogador ou Mestre
+              </h4>
+              <label class="inline-flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                <input id="toggleQuickDemoCheck" type="checkbox" onchange="app.toggleQuickDemoButtons(this.checked)" class="accent-amber-400 rounded" />
+                <span>Exibir botões de "Acesso Rápido (1 Clique)" na tela de login</span>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Nome do Jogador *</label>
+                <input id="gmCreateAccName" type="text" placeholder="Ex: Lucas (Klein)" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-brass-300 mb-1">E-mail ou Login *</label>
+                <input id="gmCreateAccEmail" type="text" placeholder="Ex: lucas@rpg.com" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-mono" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-amber-300 mb-1">Senha Inicial *</label>
+                <input id="gmCreateAccPass" type="password" placeholder="Senha inicial..." class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
+              </div>
+              <div class="flex items-center gap-1.5">
+                <select id="gmCreateAccRole" class="sheet-input px-2 py-1.5 rounded text-xs font-bold text-brass-200 flex-1">
+                  <option value="player" selected>Jogador</option>
+                  <option value="gm">Mestre</option>
+                </select>
+                <button onclick="app.adminCreateNewAccount()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 font-display font-bold text-xs shrink-0">
+                  <i class="fa-solid fa-plus mr-1"></i> Criar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-200 flex items-center gap-2">
+              <i class="fa-solid fa-key text-amber-400"></i> Todas as Contas Cadastradas (Edite E-mail, Senha ou Cargo diretamente):
+            </h4>
+            <div id="gmAllAccountsListContainer" class="space-y-2.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-4 mt-4 border-t border-slate-800 shrink-0">
+        <button onclick="app.closeAccountManagerModal()" class="px-5 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
        MODAL: INTEGRAÇÃO COM BANCO DE DADOS GRATUITO (FIREBASE) & HOSPEDAGEM
        ========================================================================= -->
   <div id="cloudSetupModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
@@ -1043,30 +1148,8 @@
       </div>
 
       <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs text-slate-300">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3.5 space-y-2">
-            <h4 class="font-display font-bold text-brass-200 uppercase flex items-center gap-1.5">
-              <i class="fa-solid fa-database text-amber-400"></i> Passo 1: Criar Banco Gratuito (2 min)
-            </h4>
-            <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-300 leading-relaxed">
-              <li>Acesse <strong>console.firebase.google.com</strong> (plano gratuito Spark, sem custo).</li>
-              <li>Clique em <strong>Criar Projeto</strong> e registre um App Web (ícone <code>&lt;/&gt;</code>).</li>
-              <li>No menu <strong>Authentication</strong> → <em>Sign-in method</em>, ative <strong>Anônimo</strong> (e/ou <em>E-mail/Senha</em>).</li>
-              <li>No menu <strong>Firestore Database</strong>, clique em <strong>Criar banco de dados</strong> e cole as regras de segurança do pacote no aba <em>Regras</em>.</li>
-              <li>Copie o bloco <code>firebaseConfig</code> gerado pelo Firebase e cole abaixo!</li>
-            </ol>
-          </div>
-
-          <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3.5 space-y-2">
-            <h4 class="font-display font-bold text-emerald-300 uppercase flex items-center gap-1.5">
-              <i class="fa-solid fa-globe text-emerald-400"></i> Passo 2: Hospedar o Site de Graça
-            </h4>
-            <ul class="space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
-              <li><strong>Opção A (GitHub Pages - Recomendado):</strong> Suba os arquivos do ZIP em um repositório no GitHub e ative <em>Settings → Pages</em>. Você receberá um link público gratuito (ex: <code>seu-usuario.github.io/site-rpg</code>).</li>
-              <li><strong>Opção B (Netlify Drop / Vercel):</strong> Arraste a pasta extraída do ZIP para <strong>app.netlify.com/drop</strong> e ganhe um link HTTPS instantâneo para mandar aos seus jogadores!</li>
-              <li><strong>Arquivos Prontos no ZIP:</strong> O pacote já inclui <code>firebase.json</code> e <code>firestore.rules</code> configurados.</li>
-            </ul>
-          </div>
+        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300">
+          Painel administrativo do Mestre para conexão com servidor Firebase Cloud e exportação de backup completo das fichas e campanhas da mesa.
         </div>
 
         <div class="space-y-1.5">

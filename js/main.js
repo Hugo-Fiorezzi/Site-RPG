@@ -23,6 +23,7 @@ import {
   renderSyncStatusBadge,
   applyActiveVisualTheme,
   renderThemeCustomizerModalContent,
+  renderAccountManagerModalContent,
   getVisibleCharactersForUser,
   renderTopNavigation,
   renderCombatBar,
@@ -186,6 +187,7 @@ class BeyonderGrimoireController {
   syncAuthGateOverlay() {
     const modal = document.getElementById('authGateModal');
     if (!modal) return;
+    this.syncQuickDemoVisibility();
     if (!this.currentUser) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -193,6 +195,35 @@ class BeyonderGrimoireController {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
     }
+  }
+
+  syncQuickDemoVisibility() {
+    let showDemo = true;
+    try {
+      showDemo = localStorage.getItem('grimorio_beyonder_show_demo_btns_v1') === 'true';
+    } catch (_) {}
+    const demoBox = document.getElementById('quickDemoLoginSection');
+    if (demoBox) {
+      demoBox.classList.toggle('hidden', !showDemo);
+    }
+    const checkEl = document.getElementById('toggleQuickDemoCheck');
+    if (checkEl) {
+      checkEl.checked = showDemo;
+    }
+  }
+
+  toggleQuickDemoButtons(enabled) {
+    try {
+      localStorage.setItem('grimorio_beyonder_show_demo_btns_v1', enabled ? 'true' : 'false');
+    } catch (_) {}
+    this.syncQuickDemoVisibility();
+    if (!enabled) {
+      const emailEl = document.getElementById('loginEmailInput');
+      const passEl = document.getElementById('loginPasswordInput');
+      if (emailEl) emailEl.value = '';
+      if (passEl) passEl.value = '';
+    }
+    showToast(enabled ? 'Botões de demonstração exibidos na tela de login.' : 'Botões de demonstração ocultados para maior segurança!');
   }
 
   openAuthModal() {
@@ -301,6 +332,126 @@ class BeyonderGrimoireController {
     showToast('Código Secreto do Mestre atualizado com criptografia SHA-256!', 'crit');
   }
 
+  // --- GERENCIADOR DE CONTAS, LOGINS E SENHAS ---
+  openAccountManagerModal() {
+    if (!this.currentUser) {
+      this.openAuthModal();
+      return;
+    }
+    this.syncQuickDemoVisibility();
+    const allUsers = this.storage.getAllUsersList();
+    renderAccountManagerModalContent(allUsers, this.currentUser);
+    const modal = document.getElementById('accountManagerModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  closeAccountManagerModal() {
+    const modal = document.getElementById('accountManagerModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  async saveMyOwnAccountChanges() {
+    if (!this.currentUser) return;
+    const oldEmail = (this.currentUser.email || '').toLowerCase();
+    const name = document.getElementById('myAccNameInput')?.value.trim() || this.currentUser.name;
+    const email = document.getElementById('myAccEmailInput')?.value.trim() || this.currentUser.email;
+    const newPassword = document.getElementById('myAccNewPassInput')?.value || '';
+
+    const res = await this.storage.updateUserAccount(this.currentUser.uid, {
+      name,
+      email,
+      newPassword,
+      role: this.currentUser.role
+    });
+
+    if (!res.ok) {
+      showToast(res.error, 'error');
+      return;
+    }
+
+    // Atualiza vínculo de e-mail nas fichas do usuário caso tenha trocado o login
+    for (const ch of Object.values(this.charactersMap)) {
+      if (ch.ownerUid === this.currentUser.uid || (oldEmail && (ch.ownerEmail || '').toLowerCase() === oldEmail)) {
+        ch.ownerUid = this.currentUser.uid;
+        ch.ownerEmail = res.user.email;
+        await this.storage.saveCharacter(ch, this.charactersMap);
+      }
+    }
+
+    const passInput = document.getElementById('myAccNewPassInput');
+    if (passInput) passInput.value = '';
+    renderAccountManagerModalContent(this.storage.getAllUsersList(), this.currentUser);
+    this.renderAll();
+    showToast(`Login atualizado para "${res.user.email}"${newPassword ? ' (com nova senha)' : ''}!`, 'crit');
+  }
+
+  async adminSaveAccountChanges(targetUid) {
+    if (!this.isGMUser()) return;
+    const name = document.getElementById(`admName_${targetUid}`)?.value.trim();
+    const email = document.getElementById(`admEmail_${targetUid}`)?.value.trim();
+    const newPassword = document.getElementById(`admPass_${targetUid}`)?.value || '';
+    const role = document.getElementById(`admRole_${targetUid}`)?.value || 'player';
+
+    const res = await this.storage.updateUserAccount(targetUid, {
+      name,
+      email,
+      newPassword,
+      role
+    });
+
+    if (!res.ok) {
+      showToast(res.error, 'error');
+      return;
+    }
+
+    for (const ch of Object.values(this.charactersMap)) {
+      if (ch.ownerUid === targetUid) {
+        ch.ownerEmail = res.user.email;
+        await this.storage.saveCharacter(ch, this.charactersMap);
+      }
+    }
+
+    renderAccountManagerModalContent(this.storage.getAllUsersList(), this.currentUser);
+    this.renderAll();
+    showToast(`Conta "${res.user.name}" (${res.user.email}) atualizada com sucesso!`, 'crit');
+  }
+
+  async adminCreateNewAccount() {
+    if (!this.isGMUser()) return;
+    const name = document.getElementById('gmCreateAccName')?.value.trim();
+    const email = document.getElementById('gmCreateAccEmail')?.value.trim();
+    const password = document.getElementById('gmCreateAccPass')?.value || '';
+    const role = document.getElementById('gmCreateAccRole')?.value || 'player';
+
+    const res = await this.storage.adminCreateUserAccount({ name, email, password, role });
+    if (!res.ok) {
+      showToast(res.error, 'error');
+      return;
+    }
+
+    document.getElementById('gmCreateAccName').value = '';
+    document.getElementById('gmCreateAccEmail').value = '';
+    document.getElementById('gmCreateAccPass').value = '';
+
+    renderAccountManagerModalContent(this.storage.getAllUsersList(), this.currentUser);
+    showToast(`Novo login "${res.user.email}" criado com sucesso!`, 'crit');
+  }
+
+  async adminDeleteAccount(targetUid) {
+    if (!this.isGMUser()) return;
+    const res = await this.storage.deleteUserAccount(targetUid);
+    if (!res.ok) {
+      showToast(res.error, 'error');
+      return;
+    }
+    renderAccountManagerModalContent(this.storage.getAllUsersList(), this.currentUser);
+    showToast('Conta removida com sucesso.');
+  }
+
   // --- PERSONALIZAÇÃO DE TEMAS, CORES E FUNDO POR USUÁRIO ---
   openThemeCustomizerModal() {
     renderThemeCustomizerModalContent(this.userTheme);
@@ -353,6 +504,10 @@ class BeyonderGrimoireController {
 
   // --- BANCO DE DADOS GRATUITO (FIREBASE) & GUIA DE HOSPEDAGEM GRATUITA ---
   openCloudDatabaseModal() {
+    if (this.currentUser && !this.isGMUser()) {
+      showToast('Configurações de servidor e backup são exclusivas do Mestre.', 'error');
+      return;
+    }
     const currentCfg = this.storage.getSavedFirebaseConfig();
     const cfgTextarea = document.getElementById('firebaseConfigJsonInput');
     if (cfgTextarea) {
@@ -1180,6 +1335,10 @@ class BeyonderGrimoireController {
   }
 
   async updateCombatParticipant(participantId, field, value) {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode alterar a situação de combate.', 'error');
+      return;
+    }
     const p = (this.combatState.participants || []).find(item => item.id === participantId);
     if (!p) return;
     p[field] = value;
