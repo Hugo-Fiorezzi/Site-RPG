@@ -122,6 +122,7 @@ export const DEFAULT_USER_THEME = {
   cardBg: 'rgba(20, 23, 36, 0.95)',
   cardGoldBg: 'rgba(26, 29, 45, 0.96)',
   accentColor: '#d4af37',
+  borderColor: '#d4af37',
   accentSecondary: '#9333ea',
   bgPattern: 'nevoeiro',
   customBgImage: ''
@@ -137,11 +138,18 @@ export const STORE_ITEM_CATEGORIES = [
   { key: 'equipamentos', label: 'Equipamentos & Geral', icon: 'fa-toolbox' }
 ];
 
+export const STORE_PAYMENT_MODES = [
+  { key: 'both', label: 'Dinheiro (£) ou Contribuição' },
+  { key: 'gold_only', label: 'Apenas Dinheiro (Libras £)' },
+  { key: 'contrib_only', label: 'Apenas Contribuição (Pts)' }
+];
+
 export const DEFAULT_STORE_ITEMS = [
   {
     id: 'st_item_1',
     name: 'Balas Purificadoras do Sol (Lote c/ 6)',
     category: 'armas',
+    paymentMode: 'both',
     priceGold: 6,
     priceContrib: 25,
     stock: -1,
@@ -152,6 +160,7 @@ export const DEFAULT_STORE_ITEMS = [
     id: 'st_item_2',
     name: 'Amuleto do Sono Noturno (Réquiem)',
     category: 'amuletos',
+    paymentMode: 'both',
     priceGold: 8,
     priceContrib: 35,
     stock: 5,
@@ -162,16 +171,18 @@ export const DEFAULT_STORE_ITEMS = [
     id: 'st_item_3',
     name: 'Fórmula da Poção: Palhaço (Seq. 8 - Vidente)',
     category: 'pocoes',
+    paymentMode: 'contrib_only',
     priceGold: 150,
     priceContrib: 250,
     stock: 1,
     grade: 'Sequência 8',
-    description: 'Fórmula completa contendo a lista de ingredientes principais (Cristal de Chifre de Bode Cinzento e Rosa com Rosto Humano).'
+    description: 'Fórmula completa contendo a lista de ingredientes principais (Cristal de Chifre de Bode Cinzento e Rosa com Rosto Humano). Exclusivo por mérito de contribuição.'
   },
   {
     id: 'st_item_4',
     name: 'Flor do Sono Noturno & Pó de Erva-Santa',
     category: 'ingredientes',
+    paymentMode: 'both',
     priceGold: 12,
     priceContrib: 40,
     stock: 8,
@@ -182,6 +193,7 @@ export const DEFAULT_STORE_ITEMS = [
     id: 'st_item_5',
     name: 'Artefato Selado 3-0411 (Espelho de Prata Sombrio)',
     category: 'artefatos',
+    paymentMode: 'contrib_only',
     priceGold: 220,
     priceContrib: 400,
     stock: 1,
@@ -192,6 +204,7 @@ export const DEFAULT_STORE_ITEMS = [
     id: 'st_item_6',
     name: 'Kit de Investigação Forense & Pêndulo de Topázio',
     category: 'equipamentos',
+    paymentMode: 'gold_only',
     priceGold: 10,
     priceContrib: 30,
     stock: -1,

@@ -109,14 +109,9 @@
       </div>
     </div>
 
-    <!-- BARRA DE ROLAGEM DE DADOS COMPARTILHADA -->
-    <div class="bg-obsidian-900/95 border-t border-brass-400/20 px-3 sm:px-6 py-1.5">
-      <div class="max-w-[1600px] mx-auto flex items-center gap-3">
-        <span class="text-[10px] font-display font-bold uppercase tracking-wider text-brass-400 shrink-0 flex items-center gap-1.5">
-          <i class="fa-solid fa-dice-d20"></i> Rolagens da Mesa:
-        </span>
-        <div id="sharedDiceTickerBar" class="flex items-center gap-2 overflow-x-auto py-0.5 flex-1"></div>
-      </div>
+    <!-- BARRA DE DADOS SUPERIOR DESATIVADA (MANTIDO APENAS O ORÁCULO DE DADOS NA LATERAL) -->
+    <div class="hidden">
+      <div id="sharedDiceTickerBar" class="hidden"></div>
     </div>
   </header>
 
@@ -237,6 +232,9 @@
           <button id="gmTabBtn-campaign" onclick="app.switchGMSubTab('campaign')" class="px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30">
             <i class="fa-solid fa-campground"></i> Aba de Campanha & Rotina Semanal (Passar Semana)
           </button>
+          <button id="gmTabBtn-store" onclick="app.switchGMSubTab('store')" class="px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30">
+            <i class="fa-solid fa-store"></i> Personalizar Loja & Contribuições
+          </button>
         </div>
 
         <!-- Sub-Aba 1: Cards de Todas as Fichas -->
@@ -247,6 +245,11 @@
         <!-- Sub-Aba 2: Gerenciador de Campanha, Seleção de Fichas e Análise de Downtime -->
         <div id="gmSubTab-campaign" class="hidden">
           <div id="gmCampaignManagerContent"></div>
+        </div>
+
+        <!-- Sub-Aba 3: Personalizador Exclusivo da Loja da Campanha & Contribuições (Mestre) -->
+        <div id="gmSubTab-store" class="hidden">
+          <div id="gmStoreManagerContent"></div>
         </div>
       </section>
 
@@ -1073,14 +1076,19 @@
 
       <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-4 space-y-3">
         <h4 class="font-display font-bold text-xs uppercase text-slate-300">Customização Avançada (Cores & Imagem de Fundo):</h4>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-[10px] uppercase text-slate-400 mb-1">Cor de Fundo Base</label>
             <input id="customThemeBgColor" type="color" oninput="app.updateCustomThemeField('bgBase', this.value)"
               class="w-full h-9 rounded cursor-pointer bg-obsidian-900 border border-slate-700 p-1" />
           </div>
           <div>
-            <label class="block text-[10px] uppercase text-slate-400 mb-1">Cor de Destaque / Bordas</label>
+            <label class="block text-[10px] uppercase text-brass-300 font-bold mb-1">Cor dos Contornos (Bordas)</label>
+            <input id="customThemeBorderColor" type="color" oninput="app.updateCustomThemeField('borderColor', this.value)"
+              class="w-full h-9 rounded cursor-pointer bg-obsidian-900 border border-slate-700 p-1" />
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Cor de Destaque / Ícones</label>
             <input id="customThemeAccentColor" type="color" oninput="app.updateCustomThemeField('accentColor', this.value)"
               class="w-full h-9 rounded cursor-pointer bg-obsidian-900 border border-slate-700 p-1" />
           </div>

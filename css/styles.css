@@ -5,8 +5,10 @@
   --theme-card-gold-bg: rgba(26, 29, 45, 0.96);
   --theme-accent: #d4af37;
   --theme-accent-sec: #9333ea;
-  --theme-border: rgba(212, 175, 55, 0.28);
-  --theme-border-strong: rgba(212, 175, 55, 0.5);
+  --theme-border-hex: #d4af37;
+  --theme-border: rgba(212, 175, 55, 0.32);
+  --theme-border-strong: rgba(212, 175, 55, 0.58);
+  --theme-border-glow: rgba(212, 175, 55, 0.16);
   --theme-custom-bg-image: none;
 }
 
@@ -16,7 +18,7 @@ body {
     var(--theme-custom-bg-image),
     radial-gradient(circle at 15% 15%, rgba(147, 51, 234, 0.09) 0%, transparent 42%),
     radial-gradient(circle at 85% 20%, rgba(14, 165, 233, 0.08) 0%, transparent 42%),
-    radial-gradient(circle at 50% 85%, rgba(212, 175, 55, 0.07) 0%, transparent 50%);
+    radial-gradient(circle at 50% 85%, var(--theme-border-glow) 0%, transparent 50%);
   background-size: cover, auto, auto, auto;
   background-position: center, center, center, center;
   background-attachment: fixed;
@@ -58,7 +60,36 @@ body[data-bg-pattern="carmesim"] {
 }
 
 /* ============================================================================
-   MODO DE COMBATE ATIVO: TEMA MACABRO, SANGUINÁRIO & ABISSAL FORÇADO PELO MESTRE
+   CONTORNOS PERSONALIZÁVEIS PELO USUÁRIO (SUBSTITUI OS CONTORNOS EM AMARELO/DOURADO)
+   ============================================================================ */
+body:not(.combat-macabre-mode) header {
+  border-bottom-color: var(--theme-border-strong) !important;
+}
+
+body:not(.combat-macabre-mode) [class*="border-brass-"] {
+  border-color: var(--theme-border-strong) !important;
+}
+
+body:not(.combat-macabre-mode) .victorian-card {
+  border-color: var(--theme-border) !important;
+}
+
+body:not(.combat-macabre-mode) .victorian-card-gold {
+  border-color: var(--theme-border-strong) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 16px var(--theme-border-glow) !important;
+}
+
+body:not(.combat-macabre-mode) .attr-shield {
+  border-color: var(--theme-border) !important;
+}
+
+body:not(.combat-macabre-mode) .attr-shield:hover {
+  border-color: var(--theme-border-hex) !important;
+  box-shadow: 0 0 18px var(--theme-border-glow) !important;
+}
+
+/* ============================================================================
+   MODO DE COMBATE ATIVO: TEMA DE COMBATE FORÇADO PELO MESTRE
    Quando o combate é desligado, esta classe sai e o tema do jogador retorna!
    ============================================================================ */
 @keyframes macabreHeartbeat {
@@ -131,7 +162,7 @@ body.combat-macabre-mode header {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-accent);
+  background: var(--theme-border-hex);
 }
 
 /* Cards Vitorianos Dinâmicos */
@@ -146,7 +177,7 @@ body.combat-macabre-mode header {
 .victorian-card-gold {
   background: linear-gradient(180deg, var(--theme-card-gold-bg) 0%, rgba(12, 14, 23, 0.99) 100%);
   border: 1px solid var(--theme-border-strong);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 15px rgba(212, 175, 55, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 15px var(--theme-border-glow);
   transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
@@ -156,8 +187,8 @@ body.combat-macabre-mode header {
   transition: all 0.2s ease;
 }
 .attr-shield:hover {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 18px rgba(212, 175, 55, 0.2);
+  border-color: var(--theme-border-hex);
+  box-shadow: 0 0 18px var(--theme-border-glow);
   transform: translateY(-2px);
 }
 
@@ -180,9 +211,9 @@ body.combat-macabre-mode header {
 }
 .sheet-input:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--theme-border-hex);
   background: rgba(13, 15, 23, 0.9);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.18);
+  box-shadow: 0 0 0 2px var(--theme-border-glow);
 }
 
 input[type=number]::-webkit-inner-spin-button, 

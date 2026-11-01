@@ -483,6 +483,7 @@ class BeyonderGrimoireController {
       cardBg: preset.cardBg,
       cardGoldBg: preset.cardGoldBg,
       accentColor: preset.accentColor,
+      borderColor: preset.borderColor || preset.accentColor,
       accentSecondary: preset.accentSecondary,
       bgPattern: preset.bgPattern
     };
@@ -2127,6 +2128,26 @@ class BeyonderGrimoireController {
   }
 
   // --- LOJA DA CAMPANHA & ABA DE CONTRIBUIÇÕES ---
+  getCampaignForChar(char) {
+    const campaigns = this.campaignState?.campaigns || [];
+    if (char) {
+      const matched = campaigns.find(c => Array.isArray(c.characterIds) && c.characterIds.includes(char.id));
+      if (matched) return matched;
+    }
+    return this.getActiveCampaign();
+  }
+
+  openGMStoreManager() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode personalizar a loja da campanha.', 'error');
+      return;
+    }
+    this.viewMode = 'gm';
+    this.activeGMSubTab = 'store';
+    this.renderAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   setStoreSubTab(subTab) {
     this.storeUIState.subTab = subTab;
     renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
@@ -2157,6 +2178,7 @@ class BeyonderGrimoireController {
       return;
     }
     const category = document.getElementById('newStoreItemCategory')?.value || 'equipamentos';
+    const paymentMode = document.getElementById('newStoreItemPaymentMode')?.value || 'both';
     const priceGold = Math.max(0, Number(document.getElementById('newStoreItemGold')?.value) || 0);
     const priceContrib = Math.max(0, Number(document.getElementById('newStoreItemContrib')?.value) || 0);
     const stock = Number(document.getElementById('newStoreItemStock')?.value ?? -1);
@@ -2167,6 +2189,7 @@ class BeyonderGrimoireController {
       id: `st_${Date.now()}`,
       name,
       category,
+      paymentMode,
       priceGold,
       priceContrib,
       stock,
@@ -2174,8 +2197,8 @@ class BeyonderGrimoireController {
       description
     });
 
+    this.renderAll();
     await this.storage.saveCampaignState(this.campaignState);
-    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
     showToast(`"${name}" adicionado à Loja da Campanha!`, 'crit');
   }
 
@@ -2185,8 +2208,8 @@ class BeyonderGrimoireController {
     const item = (camp?.storeItems || []).find(i => i.id === itemId);
     if (!item) return;
     item[field] = value;
+    this.renderAll();
     await this.storage.saveCampaignState(this.campaignState);
-    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
   }
 
   async gmRemoveStoreItem(itemId) {
@@ -2194,20 +2217,40 @@ class BeyonderGrimoireController {
     const camp = this.getActiveCampaign();
     if (!camp || !Array.isArray(camp.storeItems)) return;
     camp.storeItems = camp.storeItems.filter(i => i.id !== itemId);
+    this.renderAll();
     await this.storage.saveCampaignState(this.campaignState);
-    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
     showToast('Item retirado da loja.');
+  }
+
+  async gmSetPlayerStoreBalance(charId, field, value) {
+    if (!this.isGMUser()) return;
+    const ch = this.charactersMap[charId];
+    if (!ch) return;
+    ch[field] = Math.max(0, Number(value) || 0);
+    this.renderAll();
+    await this.storage.saveCharacter(ch, this.charactersMap);
+    showToast(`Saldo de ${ch.name} atualizado!`);
   }
 
   async buyCampaignStoreItem(itemId, paymentType = 'gold') {
     const char = this.getActiveChar();
-    const camp = this.getActiveCampaign();
+    const camp = this.getCampaignForChar(char);
     if (!char || !camp) return;
 
     const item = (camp.storeItems || []).find(i => i.id === itemId);
     if (!item) return;
     if (item.stock === 0) {
       showToast('Este item está esgotado na loja.', 'error');
+      return;
+    }
+
+    const pMode = item.paymentMode || 'both';
+    if (paymentType === 'gold' && pMode === 'contrib_only') {
+      showToast('Este item só pode ser resgatado com Pontos de Contribuição!', 'error');
+      return;
+    }
+    if (paymentType === 'contrib' && pMode === 'gold_only') {
+      showToast('Este item só pode ser comprado com Dinheiro (Libras £)!', 'error');
       return;
     }
 
@@ -2233,7 +2276,6 @@ class BeyonderGrimoireController {
       item.stock -= 1;
     }
 
-    // Adiciona automaticamente ao inventário da ficha do personagem
     const catToEqMap = {
       armas: 'Instrumento Místico',
       pocoes: 'Amuleto / Ingrediente',
@@ -2263,20 +2305,14 @@ class BeyonderGrimoireController {
 
     this.renderAll();
     await this.storage.saveCharacter(char, this.charactersMap);
-    // Persiste o log e estoque da loja na campanha
-    try {
-      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
-    } catch (_) {}
-    if (this.isGMUser()) {
-      await this.storage.saveCampaignState(this.campaignState);
-    }
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
 
     showToast(`${char.name} adquiriu "${item.name}"! O item foi adicionado à ficha.`, 'crit');
   }
 
   async submitCustomContribution() {
     const char = this.getActiveChar();
-    const camp = this.getActiveCampaign();
+    const camp = this.getCampaignForChar(char);
     if (!char || !camp) return;
 
     const desc = document.getElementById('customContribDescInput')?.value.trim();
@@ -2309,12 +2345,7 @@ class BeyonderGrimoireController {
 
     this.renderAll();
     await this.storage.saveCharacter(char, this.charactersMap);
-    try {
-      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
-    } catch (_) {}
-    if (this.isGMUser()) {
-      await this.storage.saveCampaignState(this.campaignState);
-    }
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
 
     showToast(`Contribuição registrada! +${ptsGain} Pontos de Contribuição para ${char.name}.`, 'crit');
   }
@@ -2343,8 +2374,8 @@ class BeyonderGrimoireController {
       description
     });
 
+    this.renderAll();
     await this.storage.saveCampaignState(this.campaignState);
-    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
     showToast(`Tarefa "${title}" adicionada à aba de Contribuições!`, 'crit');
   }
 
@@ -2353,14 +2384,14 @@ class BeyonderGrimoireController {
     const camp = this.getActiveCampaign();
     if (!camp || !Array.isArray(camp.contributionTasks)) return;
     camp.contributionTasks = camp.contributionTasks.filter(t => t.id !== taskId);
+    this.renderAll();
     await this.storage.saveCampaignState(this.campaignState);
-    renderCampaignStoreTab(this.getActiveChar(), this.campaignState, this.currentUser, this.storeUIState);
     showToast('Tarefa de contribuição removida.');
   }
 
   async completeContributionTask(taskId) {
     const char = this.getActiveChar();
-    const camp = this.getActiveCampaign();
+    const camp = this.getCampaignForChar(char);
     if (!char || !camp) return;
 
     const task = (camp.contributionTasks || []).find(t => t.id === taskId);
@@ -2384,20 +2415,12 @@ class BeyonderGrimoireController {
 
     this.renderAll();
     await this.storage.saveCharacter(char, this.charactersMap);
-    try {
-      localStorage.setItem('grimorio_beyonder_campaigns_v1', JSON.stringify(this.campaignState));
-    } catch (_) {}
-    if (this.isGMUser()) {
-      await this.storage.saveCampaignState(this.campaignState);
-    }
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
 
     showToast(`${char.name} recebeu +${pts} Pontos de Contribuição!`, 'crit');
   }
 }
 
-const appInstance = new BeyonderGrimoireController();
-window.app = appInstance;
-
-window.addEventListener('DOMContentLoaded', () => {
-  appInstance.init();
-});
+const app = new BeyonderGrimoireController();
+window.app = app;
+window.addEventListener('DOMContentLoaded', () => app.init());

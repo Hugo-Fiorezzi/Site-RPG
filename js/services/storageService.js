@@ -721,6 +721,22 @@ export class StorageService {
     }
   }
 
+  async saveCampaignStoreTransaction(campaignState) {
+    if (!campaignState || !this.currentUser) return;
+    campaignState.updatedAt = Date.now();
+
+    try {
+      localStorage.setItem(LOCAL_CAMPAIGNS_KEY, JSON.stringify(campaignState));
+    } catch (_) {}
+
+    if (this.isCloudConnected && this.db) {
+      try {
+        const campaignsDocRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'campaigns_tracker', 'active_campaigns');
+        await setDoc(campaignsDocRef, campaignState);
+      } catch (_) {}
+    }
+  }
+
   async publishDiceLog(logEntry, currentLogs) {
     const entry = { ...logEntry, timestamp: Date.now() };
     const updated = [{ id: `local_${Date.now()}`, ...entry }, ...currentLogs].slice(0, 40);

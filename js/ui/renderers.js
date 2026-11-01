@@ -13,6 +13,7 @@ import {
   THEME_PRESETS,
   DEFAULT_USER_THEME,
   STORE_ITEM_CATEGORIES,
+  STORE_PAYMENT_MODES,
   DEFAULT_STORE_ITEMS,
   DEFAULT_CONTRIBUTION_TASKS,
   RESISTANCE_DEGREES,
@@ -72,11 +73,24 @@ export function applyActiveVisualTheme(userTheme, isCombatActive) {
   const theme = userTheme || DEFAULT_USER_THEME;
   const root = document.documentElement;
 
+  const borderHex = (theme.borderColor || theme.accentColor || '#d4af37').trim();
+  let r = 212, g = 175, b = 55;
+  const hexMatch = borderHex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (hexMatch) {
+    r = parseInt(hexMatch[1], 16);
+    g = parseInt(hexMatch[2], 16);
+    b = parseInt(hexMatch[3], 16);
+  }
+
   root.style.setProperty('--theme-bg-base', theme.bgBase || '#07080c');
   root.style.setProperty('--theme-card-bg', theme.cardBg || 'rgba(20, 23, 36, 0.95)');
   root.style.setProperty('--theme-card-gold-bg', theme.cardGoldBg || 'rgba(26, 29, 45, 0.96)');
   root.style.setProperty('--theme-accent', theme.accentColor || '#d4af37');
   root.style.setProperty('--theme-accent-sec', theme.accentSecondary || '#9333ea');
+  root.style.setProperty('--theme-border-hex', borderHex);
+  root.style.setProperty('--theme-border', `rgba(${r}, ${g}, ${b}, 0.34)`);
+  root.style.setProperty('--theme-border-strong', `rgba(${r}, ${g}, ${b}, 0.62)`);
+  root.style.setProperty('--theme-border-glow', `rgba(${r}, ${g}, ${b}, 0.18)`);
 
   if (theme.customBgImage && theme.customBgImage.trim()) {
     const safeUrl = theme.customBgImage.trim().replace(/"/g, '');
@@ -127,6 +141,7 @@ export function renderThemeCustomizerModalContent(currentTheme) {
   }).join('');
 
   setInputValueIfNotFocused('customThemeBgColor', currentTheme?.bgBase || '#07080c');
+  setInputValueIfNotFocused('customThemeBorderColor', currentTheme?.borderColor || currentTheme?.accentColor || '#d4af37');
   setInputValueIfNotFocused('customThemeAccentColor', currentTheme?.accentColor || '#d4af37');
   setInputValueIfNotFocused('customThemePatternSelect', currentTheme?.bgPattern || 'nevoeiro');
   setInputValueIfNotFocused('customThemeBgImageUrl', currentTheme?.customBgImage || '');
@@ -615,27 +630,23 @@ export function renderTopNavigation(charactersMap, activeCharacterId, viewMode, 
 export function renderGMDashboard(charactersMap, campaignState, activeGMSubTab = 'overview', currentUser = null) {
   if (!currentUser || currentUser.role !== 'gm') return;
 
-  const btnOverview = document.getElementById('gmTabBtn-overview');
-  const btnCampaign = document.getElementById('gmTabBtn-campaign');
-  const panelOverview = document.getElementById('gmSubTab-overview');
-  const panelCampaign = document.getElementById('gmSubTab-campaign');
-
-  if (btnOverview && btnCampaign && panelOverview && panelCampaign) {
-    if (activeGMSubTab === 'campaign') {
-      btnCampaign.className = 'px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-brass-400 text-obsidian-950 shadow-md';
-      btnOverview.className = 'px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30';
-      panelOverview.classList.add('hidden');
-      panelCampaign.classList.remove('hidden');
+  const gmTabs = ['overview', 'campaign', 'store'];
+  gmTabs.forEach(tabKey => {
+    const btn = document.getElementById(`gmTabBtn-${tabKey}`);
+    const panel = document.getElementById(`gmSubTab-${tabKey}`);
+    if (!btn || !panel) return;
+    if (tabKey === activeGMSubTab) {
+      btn.className = 'px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-brass-400 text-obsidian-950 shadow-md';
+      panel.classList.remove('hidden');
     } else {
-      btnOverview.className = 'px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-brass-400 text-obsidian-950 shadow-md';
-      btnCampaign.className = 'px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30';
-      panelOverview.classList.remove('hidden');
-      panelCampaign.classList.add('hidden');
+      btn.className = 'px-4 py-2.5 rounded-lg font-display font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2 bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-brass-400/30';
+      panel.classList.add('hidden');
     }
-  }
+  });
 
   renderGMCharactersOverviewGrid(charactersMap, campaignState);
   renderGMCampaignAndDowntimePanel(charactersMap, campaignState);
+  renderGMStoreManager(charactersMap, campaignState);
 }
 
 function renderGMCharactersOverviewGrid(charactersMap, campaignState) {
@@ -2337,14 +2348,16 @@ export function renderResistancesAndWeaknesses(char) {
   }
 }
 
-export function renderCampaignStoreTab(char, campaignState, currentUser, storeUIState = null) {
-  const container = document.getElementById('campaignStoreTabContainer');
-  if (!container || !char) return;
+export function renderGMStoreManager(charactersMap, campaignState) {
+  const container = document.getElementById('gmStoreManagerContent');
+  if (!container) return;
 
-  const isGMUser = currentUser?.role === 'gm';
-  const ui = storeUIState || { subTab: 'items', categoryFilter: 'all', searchText: '' };
-  const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
-  if (!activeCamp) return;
+  const campaigns = campaignState?.campaigns || [];
+  const activeCamp = campaigns.find(c => c.id === campaignState?.activeCampaignId) || campaigns[0];
+  if (!activeCamp) {
+    container.innerHTML = `<div class="victorian-card rounded-xl p-6 text-center text-xs text-slate-400">Crie uma campanha para personalizar a loja.</div>`;
+    return;
+  }
 
   if (!Array.isArray(activeCamp.storeItems)) {
     activeCamp.storeItems = JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS));
@@ -2356,9 +2369,286 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
     activeCamp.contributionLogs = [];
   }
 
+  const campChars = (activeCamp.characterIds || []).map(id => charactersMap[id]).filter(Boolean);
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      <!-- CABEÇALHO DO EDITOR DE LOJA DO MESTRE -->
+      <div class="victorian-card-gold rounded-xl p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">
+              Edição Exclusiva do Mestre • Sincronizado com Todas as Fichas da Campanha
+            </span>
+            <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
+              <i class="fa-solid fa-store text-brass-400"></i> Personalizar Loja & Contribuições — ${escapeHtml(activeCamp.name)}
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Adicione, edite ou retire itens, escolha se cada item pode ser adquirido <strong>apenas com dinheiro (£)</strong>, <strong>apenas com pontos de contribuição</strong> ou <strong>ambos</strong>. Todas as alterações aparecem imediatamente na aba Loja das fichas dos jogadores desta campanha.
+            </p>
+          </div>
+          ${campaigns.length > 1 ? `
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400">Campanha:</span>
+              <select onchange="app.selectActiveCampaign(this.value)" class="sheet-input px-3 py-1.5 rounded-lg text-xs font-bold text-brass-200">
+                ${campaigns.map(c => `<option value="${c.id}" ${c.id === activeCamp.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- 1. ADICIONAR NOVO ITEM NA LOJA DA CAMPANHA -->
+      <div class="victorian-card rounded-xl p-5 border border-brass-400/40 space-y-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <h4 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-plus-circle text-brass-400"></i> Adicionar Novo Item à Loja da Campanha
+          </h4>
+          <span class="text-[11px] text-slate-400">Estoque <code>-1</code> = Ilimitado</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div class="sm:col-span-4">
+            <label class="block text-[10px] uppercase text-slate-300 mb-1">Nome do Item *</label>
+            <input id="newStoreItemName" type="text" placeholder="Ex: Fórmula de Sem Rosto / Bala Exorcista"
+              class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs font-bold text-brass-200" />
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-[10px] uppercase text-slate-300 mb-1">Tipo / Categoria</label>
+            <select id="newStoreItemCategory" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-amber-200">
+              ${STORE_ITEM_CATEGORIES.filter(c => c.key !== 'all').map(c => `<option value="${c.key}">${c.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="sm:col-span-5">
+            <label class="block text-[10px] uppercase text-brass-300 font-bold mb-1">Forma de Resgate Permitida *</label>
+            <select id="newStoreItemPaymentMode" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-300">
+              ${STORE_PAYMENT_MODES.map(pm => `<option value="${pm.key}">${pm.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-12 gap-3 items-end">
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] uppercase text-amber-300 mb-1">Preço em Libras (£)</label>
+            <input id="newStoreItemGold" type="number" min="0" value="15"
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center font-bold text-amber-200" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] uppercase text-emerald-300 mb-1">Preço Contrib. (Pts)</label>
+            <input id="newStoreItemContrib" type="number" min="0" value="40"
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center font-bold text-emerald-200" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Estoque (-1=Ilim.)</label>
+            <input id="newStoreItemStock" type="number" min="-1" value="-1"
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center" />
+          </div>
+          <div class="col-span-2 sm:col-span-3">
+            <label class="block text-[10px] uppercase text-eldritch-300 mb-1">Grau / Sequência</label>
+            <input id="newStoreItemGrade" type="text" placeholder="Ex: Seq. 7 / Artefato Grau 3"
+              class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-eldritch-200" />
+          </div>
+          <div class="col-span-2 sm:col-span-3">
+            <button onclick="app.gmAddStoreItem()" class="w-full py-2 px-4 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all">
+              <i class="fa-solid fa-plus"></i> Adicionar à Loja
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase text-slate-400 mb-1">Descrição dos Efeitos, Bônus ou Condições de Uso</label>
+          <input id="newStoreItemDesc" type="text" placeholder="Descreva os efeitos do item que aparecerão na vitrine para os jogadores..."
+            class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-slate-200" />
+        </div>
+      </div>
+
+      <!-- 2. ITENS ATUAIS DA LOJA (EDITAR OU RETIRAR) -->
+      <div class="victorian-card rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <h4 class="font-display font-bold text-sm uppercase tracking-wider text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-boxes-stacked text-brass-400"></i> Itens Cadastrados na Loja (${activeCamp.storeItems.length})
+          </h4>
+          <span class="text-xs text-slate-400">Edite qualquer campo para atualizar instantaneamente nas fichas dos jogadores</span>
+        </div>
+
+        ${activeCamp.storeItems.length === 0 ? `
+          <p class="text-xs text-slate-500 italic text-center py-6">A loja desta campanha está vazia. Adicione itens acima.</p>
+        ` : `
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+            ${activeCamp.storeItems.map(item => {
+              const pMode = item.paymentMode || 'both';
+              return `
+                <div class="bg-obsidian-950/90 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <input type="text" value="${escapeHtml(item.name || '')}"
+                      onchange="app.gmUpdateStoreItem('${item.id}', 'name', this.value)"
+                      class="sheet-input flex-1 px-2.5 py-1 rounded font-display font-bold text-sm text-brass-200" />
+                    <button onclick="app.gmRemoveStoreItem('${item.id}')" title="Retirar este item da loja"
+                      class="px-2.5 py-1 rounded-lg bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-xs font-bold flex items-center gap-1 shrink-0 transition-all">
+                      <i class="fa-solid fa-trash-can"></i> Retirar
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label class="block text-[9px] uppercase text-slate-400">Tipo de Item</label>
+                      <select onchange="app.gmUpdateStoreItem('${item.id}', 'category', this.value)"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs text-amber-200">
+                        ${STORE_ITEM_CATEGORIES.filter(c => c.key !== 'all').map(c => `<option value="${c.key}" ${item.category === c.key ? 'selected' : ''}>${c.label}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-[9px] uppercase text-brass-300 font-bold">Modo de Resgate</label>
+                      <select onchange="app.gmUpdateStoreItem('${item.id}', 'paymentMode', this.value)"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs font-bold ${pMode === 'contrib_only' ? 'text-emerald-300' : (pMode === 'gold_only' ? 'text-amber-300' : 'text-slate-200')}">
+                        ${STORE_PAYMENT_MODES.map(pm => `<option value="${pm.key}" ${pMode === pm.key ? 'selected' : ''}>${pm.label}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-[9px] uppercase text-eldritch-300">Grau / Sequência</label>
+                      <input type="text" value="${escapeHtml(item.grade || '')}"
+                        onchange="app.gmUpdateStoreItem('${item.id}', 'grade', this.value)"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs text-eldritch-200" />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2">
+                    <div class="${pMode === 'contrib_only' ? 'opacity-40' : ''}">
+                      <label class="block text-[9px] uppercase text-amber-300">Preço Libras (£)</label>
+                      <input type="number" min="0" value="${item.priceGold ?? 0}"
+                        onchange="app.gmUpdateStoreItem('${item.id}', 'priceGold', Number(this.value))"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs font-bold text-amber-200 text-center" />
+                    </div>
+                    <div class="${pMode === 'gold_only' ? 'opacity-40' : ''}">
+                      <label class="block text-[9px] uppercase text-emerald-300">Preço Contrib. (Pts)</label>
+                      <input type="number" min="0" value="${item.priceContrib ?? 0}"
+                        onchange="app.gmUpdateStoreItem('${item.id}', 'priceContrib', Number(this.value))"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs font-bold text-emerald-200 text-center" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] uppercase text-slate-400">Estoque (-1=Ilim.)</label>
+                      <input type="number" min="-1" value="${item.stock ?? -1}"
+                        onchange="app.gmUpdateStoreItem('${item.id}', 'stock', Number(this.value))"
+                        class="sheet-input w-full px-2 py-1 rounded text-xs text-center font-bold" />
+                    </div>
+                  </div>
+
+                  <textarea rows="2" onchange="app.gmUpdateStoreItem('${item.id}', 'description', this.value)"
+                    placeholder="Descrição do item..."
+                    class="sheet-input w-full p-2 rounded text-xs text-slate-300">${escapeHtml(item.description || '')}</textarea>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      <!-- 3. QUADRO DE CONTRIBUIÇÕES DA CAMPANHA & SALDO DOS JOGADORES -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="lg:col-span-7 victorian-card rounded-xl p-5 space-y-3.5">
+          <h4 class="font-display font-bold text-sm uppercase tracking-wider text-emerald-300 flex items-center gap-2">
+            <i class="fa-solid fa-hand-holding-heart text-emerald-400"></i> Tarefas & Recompensas da Aba de Contribuições
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end bg-obsidian-950/80 p-3 rounded-xl border border-slate-800">
+            <div class="sm:col-span-4">
+              <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Título da Tarefa *</label>
+              <input id="newContribTaskTitle" type="text" placeholder="Ex: Entregar Artefato" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold" />
+            </div>
+            <div class="sm:col-span-4">
+              <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Descrição</label>
+              <input id="newContribTaskDesc" type="text" placeholder="Detalhes da entrega..." class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] uppercase text-emerald-300 mb-0.5">+Pts Contrib.</label>
+              <input id="newContribTaskPts" type="number" value="50" class="sheet-input w-full px-2 py-1.5 rounded text-xs text-center font-bold text-emerald-300" />
+            </div>
+            <div class="sm:col-span-2">
+              <button onclick="app.gmAddContributionTask()" class="w-full py-1.5 px-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 font-display font-bold text-xs">
+                + Criar
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            ${activeCamp.contributionTasks.map(task => `
+              <div class="flex items-center justify-between gap-2 bg-obsidian-950/85 border border-slate-800 rounded-lg p-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">+${task.rewardPoints ?? 0} pts</span>
+                    <strong class="text-xs text-brass-200 truncate">${escapeHtml(task.title)}</strong>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-0.5">${escapeHtml(task.description || '')}</p>
+                </div>
+                <button onclick="app.gmRemoveContributionTask('${task.id}')" class="p-1.5 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-400 hover:text-crimson-300 border border-slate-800 text-xs shrink-0">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 victorian-card rounded-xl p-5 space-y-3.5">
+          <h4 class="font-display font-bold text-sm uppercase tracking-wider text-amber-300 flex items-center gap-2">
+            <i class="fa-solid fa-coins text-amber-400"></i> Saldos dos Jogadores na Campanha
+          </h4>
+          <p class="text-xs text-slate-400">Ajuste rapidamente as Libras (£) e os Pontos de Contribuição das fichas escaladas:</p>
+          <div class="space-y-2">
+            ${campChars.map(ch => `
+              <div class="bg-obsidian-950/90 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(ch.name)}</div>
+                  <div class="text-[10px] text-slate-400">${escapeHtml(ch.player || 'Jogador')}</div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-amber-300 font-bold">£:</span>
+                    <input type="number" value="${ch.currencyGold ?? 0}"
+                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyGold', Number(this.value))"
+                      class="sheet-input w-16 text-center py-0.5 rounded text-xs font-bold text-amber-200" />
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-emerald-300 font-bold">Pts:</span>
+                    <input type="number" value="${ch.contributionPoints ?? 0}"
+                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'contributionPoints', Number(this.value))"
+                      class="sheet-input w-16 text-center py-0.5 rounded text-xs font-bold text-emerald-300" />
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderCampaignStoreTab(char, campaignState, currentUser, storeUIState = null) {
+  const container = document.getElementById('campaignStoreTabContainer');
+  if (!container || !char) return;
+
+  const isGMUser = currentUser?.role === 'gm';
+  const ui = storeUIState || { subTab: 'items', categoryFilter: 'all', searchText: '' };
+  const campaigns = campaignState?.campaigns || [];
+  // Encontra a campanha à qual esta ficha pertence (ou a campanha ativa da mesa)
+  const charCamp = campaigns.find(c => Array.isArray(c.characterIds) && c.characterIds.includes(char.id))
+    || campaigns.find(c => c.id === campaignState?.activeCampaignId)
+    || campaigns[0];
+
+  if (!charCamp) return;
+
+  if (!Array.isArray(charCamp.storeItems)) {
+    charCamp.storeItems = JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS));
+  }
+  if (!Array.isArray(charCamp.contributionTasks)) {
+    charCamp.contributionTasks = JSON.parse(JSON.stringify(DEFAULT_CONTRIBUTION_TASKS));
+  }
+  if (!Array.isArray(charCamp.contributionLogs)) {
+    charCamp.contributionLogs = [];
+  }
+
   const filterCat = ui.categoryFilter || 'all';
   const searchTxt = (ui.searchText || '').toLowerCase().trim();
-  const filteredItems = activeCamp.storeItems.filter(it => {
+  const filteredItems = charCamp.storeItems.filter(it => {
     const matchesCat = filterCat === 'all' || it.category === filterCat;
     const matchesSearch = !searchTxt ||
       (it.name || '').toLowerCase().includes(searchTxt) ||
@@ -2372,20 +2662,25 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
 
   container.innerHTML = `
     <div class="space-y-4">
-      <!-- CABEÇALHO DA LOJA DA CAMPANHA & SALDOS DO PERSONAGEM -->
+      <!-- CABEÇALHO DA LOJA DA CAMPANHA NAS FICHAS -->
       <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-brass-400/25 pb-3">
           <div>
             <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">
-              Mercado Oculto & Arsenal da Organização — ${escapeHtml(activeCamp.name)}
+              Loja Oficial Sincronizada — ${escapeHtml(charCamp.name)}
             </span>
             <h3 class="font-display font-bold text-lg text-brass-200 flex items-center gap-2">
-              <i class="fa-solid fa-store text-brass-400"></i> Loja da Campanha & Quadro de Contribuições
+              <i class="fa-solid fa-store text-brass-400"></i> Loja da Campanha & Contribuições
             </h3>
           </div>
 
-          <!-- Saldos Atuais da Ficha Selecionada -->
+          <!-- Saldos Atuais da Ficha Selecionada + Atalho para o Mestre Editar no Painel do Mestre -->
           <div class="flex flex-wrap items-center gap-2.5">
+            ${isGMUser ? `
+              <button onclick="app.openGMStoreManager()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-400 text-amber-200 hover:text-obsidian-950 border border-amber-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
+                <i class="fa-solid fa-crown"></i> Editar Loja no Painel do Mestre
+              </button>
+            ` : ''}
             <div class="bg-obsidian-950/90 border border-amber-500/40 rounded-xl px-3 py-1.5 flex items-center gap-2">
               <i class="fa-solid fa-coins text-amber-400 text-sm"></i>
               <div>
@@ -2407,25 +2702,24 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
         <div class="flex flex-wrap items-center gap-2">
           <button onclick="app.setStoreSubTab('items')"
             class="px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${ui.subTab !== 'contributions' ? 'bg-brass-400 text-obsidian-950 shadow-md' : 'bg-obsidian-900 text-slate-300 hover:text-brass-200 border border-slate-800'}">
-            <i class="fa-solid fa-cart-shopping"></i> Catálogo de Itens (${activeCamp.storeItems.length})
+            <i class="fa-solid fa-cart-shopping"></i> Catálogo de Itens (${charCamp.storeItems.length})
           </button>
           <button onclick="app.setStoreSubTab('contributions')"
             class="px-4 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${ui.subTab === 'contributions' ? 'bg-emerald-500 text-obsidian-950 shadow-md' : 'bg-obsidian-900 text-slate-300 hover:text-emerald-300 border border-slate-800'}">
-            <i class="fa-solid fa-hand-holding-heart"></i> Aba de Contribuições (${activeCamp.contributionTasks.length})
+            <i class="fa-solid fa-hand-holding-heart"></i> Aba de Contribuições (${charCamp.contributionTasks.length})
           </button>
         </div>
       </div>
 
       ${ui.subTab !== 'contributions' ? `
         <!-- =================================================================
-             SUB-ABA 1: CATÁLOGO DE ITENS DA LOJA (COM FILTRO POR TIPO & GESTÃO DO MESTRE)
+             SUB-ABA 1: VITRINE DE ITENS DA LOJA (SOMENTE COMPRA/RESGATE NAS FICHAS)
              ================================================================= -->
         <div class="space-y-4">
-          <!-- Barra de Filtro por Tipo de Item -->
           <div class="victorian-card rounded-xl p-4 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-display font-bold uppercase tracking-wider text-brass-300">
-                <i class="fa-solid fa-filter mr-1"></i> Filtrar Loja por Tipo de Item:
+                <i class="fa-solid fa-filter mr-1"></i> Filtrar por Tipo de Item:
               </span>
               <div class="relative w-full sm:w-64">
                 <i class="fa-solid fa-magnifying-glass text-slate-500 absolute left-2.5 top-2 text-xs"></i>
@@ -2447,58 +2741,6 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
             </div>
           </div>
 
-          <!-- Painel Exclusivo do Mestre: Adicionar Novos Itens à Loja -->
-          ${isGMUser ? `
-            <div class="victorian-card rounded-xl p-4 border border-amber-400/40 space-y-3">
-              <div class="flex items-center justify-between">
-                <h4 class="font-display font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-2">
-                  <i class="fa-solid fa-crown text-amber-400"></i> Controle do Mestre — Adicionar Novo Item na Loja da Campanha
-                </h4>
-                <span class="text-[10px] text-slate-400">Estoque -1 = Ilimitado</span>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
-                <div class="sm:col-span-4">
-                  <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Nome do Item *</label>
-                  <input id="newStoreItemName" type="text" placeholder="Ex: Fórmula de Sem Rosto / Bala Exorcista" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold text-brass-200" />
-                </div>
-                <div class="sm:col-span-3">
-                  <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Tipo de Item</label>
-                  <select id="newStoreItemCategory" class="sheet-input w-full px-2 py-1.5 rounded text-xs text-amber-200">
-                    ${STORE_ITEM_CATEGORIES.filter(c => c.key !== 'all').map(c => `<option value="${c.key}">${c.label}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block text-[10px] uppercase text-amber-300 mb-0.5">Preço (Libras £)</label>
-                  <input id="newStoreItemGold" type="number" min="0" value="10" class="sheet-input w-full px-2 py-1.5 rounded text-xs text-center font-bold text-amber-200" />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block text-[10px] uppercase text-emerald-300 mb-0.5">Preço (Contrib.)</label>
-                  <input id="newStoreItemContrib" type="number" min="0" value="30" class="sheet-input w-full px-2 py-1.5 rounded text-xs text-center font-bold text-emerald-200" />
-                </div>
-                <div class="sm:col-span-1">
-                  <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Estoque</label>
-                  <input id="newStoreItemStock" type="number" min="-1" value="-1" class="sheet-input w-full px-1.5 py-1.5 rounded text-xs text-center" />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                <div class="sm:col-span-3">
-                  <input id="newStoreItemGrade" type="text" placeholder="Grau / Sequência (Ex: Seq. 7 / Grau 3)" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs text-eldritch-300" />
-                </div>
-                <div class="sm:col-span-7">
-                  <input id="newStoreItemDesc" type="text" placeholder="Descrição dos efeitos, bônus ou condições do item..." class="sheet-input w-full px-2.5 py-1.5 rounded text-xs text-slate-200" />
-                </div>
-                <div class="sm:col-span-2">
-                  <button onclick="app.gmAddStoreItem()" class="w-full py-1.5 px-3 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs flex items-center justify-center gap-1.5 shadow">
-                    <i class="fa-solid fa-plus"></i> Adicionar
-                  </button>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Grid de Itens da Loja -->
           ${filteredItems.length === 0 ? `
             <div class="victorian-card rounded-xl p-8 text-center text-xs text-slate-400">
               Nenhum item encontrado para este filtro na Loja da Campanha.
@@ -2508,78 +2750,50 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
               ${filteredItems.map(item => {
                 const catMeta = catMetaMap[item.category] || { label: 'Item', icon: 'fa-box' };
                 const outOfStock = item.stock === 0;
-                const stockLabel = item.stock < 0 ? 'Estoque Ilimitado' : `Estoque: ${item.stock}`;
+                const stockLabel = item.stock < 0 ? 'Estoque Ilimitado' : `Disponível: ${item.stock}`;
+                const pMode = item.paymentMode || 'both';
+                const allowGold = (pMode === 'both' || pMode === 'gold_only') && (item.priceGold ?? 0) > 0;
+                const allowContrib = (pMode === 'both' || pMode === 'contrib_only') && (item.priceContrib ?? 0) > 0;
+
+                const modeBadge = pMode === 'contrib_only'
+                  ? `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-display font-bold uppercase"><i class="fa-solid fa-medal mr-1"></i>Apenas Contribuição</span>`
+                  : pMode === 'gold_only'
+                  ? `<span class="px-2 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300 text-[10px] font-display font-bold uppercase"><i class="fa-solid fa-coins mr-1"></i>Apenas Dinheiro (£)</span>`
+                  : '';
 
                 return `
                   <div class="victorian-card rounded-xl p-4 flex flex-col justify-between border ${outOfStock ? 'border-slate-800 opacity-60' : 'border-brass-400/30 hover:border-brass-400'} transition-all space-y-3">
                     <div class="space-y-2">
-                      <div class="flex items-start justify-between gap-2">
-                        <div>
-                          <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="px-2 py-0.5 rounded bg-obsidian-950 border border-brass-400/35 text-brass-300 text-[10px] font-display font-bold uppercase">
-                              <i class="fa-solid ${catMeta.icon} mr-1"></i>${escapeHtml(catMeta.label)}
-                            </span>
-                            ${item.grade ? `<span class="px-2 py-0.5 rounded bg-eldritch-950 border border-eldritch-500/35 text-eldritch-300 text-[10px] font-semibold">${escapeHtml(item.grade)}</span>` : ''}
-                            <span class="text-[10px] font-semibold ${outOfStock ? 'text-crimson-400' : 'text-slate-400'}">• ${stockLabel}</span>
-                          </div>
-                          ${isGMUser ? `
-                            <input type="text" value="${escapeHtml(item.name)}" onchange="app.gmUpdateStoreItem('${item.id}', 'name', this.value)"
-                              class="sheet-input w-full px-2 py-1 mt-1.5 rounded font-display font-bold text-sm text-brass-200" />
-                          ` : `
-                            <h4 class="font-display font-bold text-sm sm:text-base text-brass-200 mt-1">${escapeHtml(item.name)}</h4>
-                          `}
-                        </div>
-
-                        ${isGMUser ? `
-                          <button onclick="app.gmRemoveStoreItem('${item.id}')" title="Retirar item da loja" class="px-2 py-1 rounded bg-crimson-950/70 hover:bg-crimson-600 text-crimson-300 hover:text-white border border-crimson-500/40 text-xs transition-all shrink-0">
-                            <i class="fa-solid fa-trash-can"></i>
-                          </button>
-                        ` : ''}
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="px-2 py-0.5 rounded bg-obsidian-950 border border-brass-400/35 text-brass-300 text-[10px] font-display font-bold uppercase">
+                          <i class="fa-solid ${catMeta.icon} mr-1"></i>${escapeHtml(catMeta.label)}
+                        </span>
+                        ${item.grade ? `<span class="px-2 py-0.5 rounded bg-eldritch-950 border border-eldritch-500/35 text-eldritch-300 text-[10px] font-semibold">${escapeHtml(item.grade)}</span>` : ''}
+                        ${modeBadge}
+                        <span class="text-[10px] font-semibold ${outOfStock ? 'text-crimson-400' : 'text-slate-400'}">• ${stockLabel}</span>
                       </div>
-
-                      ${isGMUser ? `
-                        <textarea rows="2" onchange="app.gmUpdateStoreItem('${item.id}', 'description', this.value)"
-                          class="sheet-input w-full p-2 rounded text-xs text-slate-300">${escapeHtml(item.description || '')}</textarea>
-                        <div class="grid grid-cols-3 gap-2 pt-1">
-                          <div>
-                            <label class="block text-[9px] uppercase text-amber-300">Preço Libras (£)</label>
-                            <input type="number" min="0" value="${item.priceGold ?? 0}" onchange="app.gmUpdateStoreItem('${item.id}', 'priceGold', Number(this.value))"
-                              class="sheet-input w-full px-2 py-0.5 rounded text-xs font-bold text-amber-200 text-center" />
-                          </div>
-                          <div>
-                            <label class="block text-[9px] uppercase text-emerald-300">Preço Contrib.</label>
-                            <input type="number" min="0" value="${item.priceContrib ?? 0}" onchange="app.gmUpdateStoreItem('${item.id}', 'priceContrib', Number(this.value))"
-                              class="sheet-input w-full px-2 py-0.5 rounded text-xs font-bold text-emerald-200 text-center" />
-                          </div>
-                          <div>
-                            <label class="block text-[9px] uppercase text-slate-400">Estoque (-1=Ilim.)</label>
-                            <input type="number" min="-1" value="${item.stock ?? -1}" onchange="app.gmUpdateStoreItem('${item.id}', 'stock', Number(this.value))"
-                              class="sheet-input w-full px-2 py-0.5 rounded text-xs text-center" />
-                          </div>
-                        </div>
-                      ` : `
-                        <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(item.description || '')}</p>
-                      `}
+                      <h4 class="font-display font-bold text-sm sm:text-base text-brass-200">${escapeHtml(item.name)}</h4>
+                      <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(item.description || '')}</p>
                     </div>
 
                     <div class="pt-2.5 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-2">
                       <div class="flex items-center gap-3 text-xs">
-                        ${(item.priceGold ?? 0) > 0 ? `
+                        ${allowGold ? `
                           <span class="font-display font-bold text-amber-300"><i class="fa-solid fa-coins mr-1"></i>${item.priceGold} £</span>
                         ` : ''}
-                        ${(item.priceContrib ?? 0) > 0 ? `
+                        ${allowContrib ? `
                           <span class="font-display font-bold text-emerald-300"><i class="fa-solid fa-medal mr-1"></i>${item.priceContrib} pts</span>
                         ` : ''}
                       </div>
 
                       <div class="flex items-center gap-1.5">
-                        ${(item.priceGold ?? 0) > 0 ? `
+                        ${allowGold ? `
                           <button onclick="app.buyCampaignStoreItem('${item.id}', 'gold')" ${outOfStock ? 'disabled' : ''}
                             class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-400 text-amber-200 hover:text-obsidian-950 border border-amber-400/40 font-display font-bold text-xs transition-all disabled:opacity-40">
                             <i class="fa-solid fa-coins mr-1"></i>Comprar (${item.priceGold}£)
                           </button>
                         ` : ''}
-                        ${(item.priceContrib ?? 0) > 0 ? `
+                        ${allowContrib ? `
                           <button onclick="app.buyCampaignStoreItem('${item.id}', 'contrib')" ${outOfStock ? 'disabled' : ''}
                             class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-400 text-emerald-200 hover:text-obsidian-950 border border-emerald-400/40 font-display font-bold text-xs transition-all disabled:opacity-40">
                             <i class="fa-solid fa-medal mr-1"></i>Resgatar (${item.priceContrib} pts)
@@ -2598,18 +2812,17 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
              SUB-ABA 2: ABA DE CONTRIBUIÇÕES DA CAMPANHA / ORGANIZAÇÃO
              ================================================================= -->
         <div class="space-y-4">
-          <!-- Enviar Contribuição Personalizada do Jogador -->
           <div class="victorian-card rounded-xl p-4 space-y-3 border border-emerald-500/35">
             <h4 class="font-display font-bold text-xs sm:text-sm uppercase tracking-wider text-emerald-300 flex items-center gap-2">
-              <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Registrar Nova Contribuição de ${escapeHtml(char.name)}
+              <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Registrar Entrega ou Contribuição de ${escapeHtml(char.name)}
             </h4>
             <p class="text-xs text-slate-400">
-              Registre entregas de ingredientes, relatórios de investigação, doações em Libras ou serviços prestados à organização para somar Pontos de Contribuição.
+              Registre entregas de ingredientes, relatórios de investigação, doações em Libras ou serviços prestados para somar Pontos de Contribuição.
             </p>
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
               <div class="sm:col-span-6">
                 <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Descrição da Contribuição / Entrega *</label>
-                <input id="customContribDescInput" type="text" placeholder="Ex: Entreguei característica Beyonder ao Portão Chanis / Relatório de missão..."
+                <input id="customContribDescInput" type="text" placeholder="Ex: Entreguei característica Beyonder / Relatório de missão..."
                   class="sheet-input w-full px-3 py-1.5 rounded text-xs text-slate-100" />
               </div>
               <div class="sm:col-span-2">
@@ -2630,49 +2843,13 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
             </div>
           </div>
 
-          <!-- Painel do Mestre: Adicionar Tarefa/Recompensa no Quadro de Contribuições -->
-          ${isGMUser ? `
-            <div class="victorian-card rounded-xl p-4 border border-amber-400/40 space-y-2.5">
-              <h4 class="font-display font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-2">
-                <i class="fa-solid fa-crown text-amber-400"></i> Mestre — Adicionar Tarefa ou Missão de Contribuição Fixa
-              </h4>
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                <div class="sm:col-span-4">
-                  <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Título da Tarefa *</label>
-                  <input id="newContribTaskTitle" type="text" placeholder="Ex: Entregar Artefato Selado" class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold" />
-                </div>
-                <div class="sm:col-span-4">
-                  <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Descrição</label>
-                  <input id="newContribTaskDesc" type="text" placeholder="Condições e detalhes..." class="sheet-input w-full px-2.5 py-1.5 rounded text-xs" />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block text-[10px] uppercase text-emerald-300 mb-0.5">+Pontos Contrib.</label>
-                  <input id="newContribTaskPts" type="number" value="50" class="sheet-input w-full px-2 py-1.5 rounded text-xs text-center font-bold text-emerald-300" />
-                </div>
-                <div class="sm:col-span-2">
-                  <button onclick="app.gmAddContributionTask()" class="w-full py-1.5 px-3 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-bold text-xs">
-                    <i class="fa-solid fa-plus mr-1"></i> Criar Tarefa
-                  </button>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Quadro de Tarefas de Contribuição da Campanha -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            ${activeCamp.contributionTasks.map(task => `
+            ${charCamp.contributionTasks.map(task => `
               <div class="victorian-card rounded-xl p-4 flex flex-col justify-between border border-slate-800 hover:border-emerald-500/40 space-y-3">
                 <div>
-                  <div class="flex items-start justify-between gap-2">
-                    <span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-display font-bold uppercase">
-                      <i class="fa-solid fa-medal mr-1"></i>+${task.rewardPoints ?? 0} pts ${(task.rewardGold ?? 0) > 0 ? `• +${task.rewardGold}£` : ''}
-                    </span>
-                    ${isGMUser ? `
-                      <button onclick="app.gmRemoveContributionTask('${task.id}')" class="text-slate-500 hover:text-crimson-400 text-xs">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
-                    ` : ''}
-                  </div>
+                  <span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-display font-bold uppercase">
+                    <i class="fa-solid fa-medal mr-1"></i>+${task.rewardPoints ?? 0} pts ${(task.rewardGold ?? 0) > 0 ? `• +${task.rewardGold}£` : ''}
+                  </span>
                   <h5 class="font-display font-bold text-sm text-brass-200 mt-1.5">${escapeHtml(task.title)}</h5>
                   <p class="text-xs text-slate-400 mt-1">${escapeHtml(task.description || '')}</p>
                 </div>
@@ -2686,16 +2863,15 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
             `).join('')}
           </div>
 
-          <!-- Histórico de Contribuições & Aquisições da Campanha -->
           <div class="victorian-card rounded-xl p-4 space-y-2.5">
             <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-300 flex items-center gap-2">
-              <i class="fa-solid fa-clock-rotate-left text-brass-400"></i> Histórico Recente de Contribuições & Compras da Campanha
+              <i class="fa-solid fa-clock-rotate-left text-brass-400"></i> Histórico Recente de Contribuições & Aquisições da Campanha
             </h4>
-            ${activeCamp.contributionLogs.length === 0 ? `
-              <p class="text-xs text-slate-500 italic">Nenhum registro de contribuição ou compra realizado ainda.</p>
+            ${charCamp.contributionLogs.length === 0 ? `
+              <p class="text-xs text-slate-500 italic">Nenhum registro de contribuição ou aquisição realizado ainda.</p>
             ` : `
               <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                ${activeCamp.contributionLogs.slice(0, 20).map(log => `
+                ${charCamp.contributionLogs.slice(0, 20).map(log => `
                   <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs">
                     <div>
                       <strong class="text-brass-200">${escapeHtml(log.charName || 'Beyonder')}</strong>
