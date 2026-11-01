@@ -12,7 +12,7 @@ import {
   createCollectionItemTemplate
 } from './config/constants.js';
 import { createDefaultCharacter, getSampleCharactersList } from './models/characterFactory.js';
-import { clamp, calcAttrMod, formatSigned, escapeHtml, setInputValueIfNotFocused } from './utils/helpers.js';
+import { clamp, calcAttrMod, formatSigned, escapeHtml, setInputValueIfNotFocused, isUserTypingAnywhere } from './utils/helpers.js';
 import { toggleSoundState, playDiceSound, playCombatAlarmSound, showToast } from './services/audioAndToast.js';
 import { rollSingleDie, evaluateBonusDie, buildD20RollResult, buildFormulaRollResult } from './services/diceEngine.js';
 import { StorageService } from './services/storageService.js';
@@ -57,6 +57,7 @@ class BeyonderGrimoireController {
     this.campaignState = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_STATE));
     this.diceLogs = [];
     this.saveTimeout = null;
+    this.lastLocalEditTime = 0;
     this.seqProgTargetCharId = null;
     this.deleteTargetCharId = null;
     this.storeUIState = { subTab: 'items', categoryFilter: 'all', searchText: '' };
@@ -68,6 +69,15 @@ class BeyonderGrimoireController {
 
     this.storage = new StorageService({
       onCharactersChanged: (loadedMap) => {
+        const activelyTyping = isUserTypingAnywhere() || (Date.now() - this.lastLocalEditTime < 1400);
+        if (activelyTyping && this.activeCharacterId && this.charactersMap[this.activeCharacterId] && loadedMap[this.activeCharacterId]) {
+          // Mantém a versão local em digitação da ficha ativa para não cancelar o foco/prompt do usuário
+          const localActive = this.charactersMap[this.activeCharacterId];
+          this.charactersMap = { ...loadedMap, [this.activeCharacterId]: localActive };
+          renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
+          renderCombatBar(this.combatState, this.charactersMap, this.viewMode, this.campaignState, this.activeCharacterId, this.currentUser);
+          return;
+        }
         this.charactersMap = loadedMap;
         this.ensureValidActiveCharacterForUser();
         this.renderAll();
@@ -180,12 +190,13 @@ class BeyonderGrimoireController {
   scheduleAutoSave() {
     const char = this.getActiveChar();
     if (!char) return;
+    this.lastLocalEditTime = Date.now();
 
     if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(async () => {
       await this.storage.saveCharacter(char, this.charactersMap);
       renderCombatBar(this.combatState, this.charactersMap, this.viewMode, this.campaignState, this.activeCharacterId, this.currentUser);
-    }, 220);
+    }, 650);
   }
 
   // --- AUTENTICAÇÃO E SEGURANÇA (LOGIN DE JOGADORES E MESTRE) ---
@@ -1424,7 +1435,7 @@ class BeyonderGrimoireController {
 
   setSkillSortMode(mode) {
     this.skillSortMode = mode;
-    renderSkillsList(this.getActiveChar(), this.skillSortMode);
+    renderSkillsList(this.getActiveChar(), this.skillSortMode, true);
   }
 
   // --- NAVEGAÇÃO E VISÃO DO MESTRE (PROTEGIDA POR LOGIN) ---
@@ -1542,7 +1553,7 @@ class BeyonderGrimoireController {
     if (!char.savingThrows) char.savingThrows = {};
     if (!char.savingThrows[saveKey]) char.savingThrows[saveKey] = { proficient: false, bonus: 0 };
     char.savingThrows[saveKey].proficient = !char.savingThrows[saveKey].proficient;
-    renderSavingThrowsSection(char);
+    renderSavingThrowsSection(char, true);
     this.scheduleAutoSave();
   }
 
@@ -1552,12 +1563,12 @@ class BeyonderGrimoireController {
     if (!char.savingThrows) char.savingThrows = {};
     if (!char.savingThrows[saveKey]) char.savingThrows[saveKey] = { proficient: false, bonus: 0 };
     char.savingThrows[saveKey].bonus = val;
-    renderSavingThrowsSection(char);
+    renderSavingThrowsSection(char, false);
     this.scheduleAutoSave();
   }
 
   filterSkills() {
-    renderSkillsList(this.getActiveChar(), this.skillSortMode);
+    renderSkillsList(this.getActiveChar(), this.skillSortMode, true);
   }
 
   cycleSkillProficiency(skillId) {
@@ -1567,7 +1578,7 @@ class BeyonderGrimoireController {
     if (!char.skills) char.skills = {};
     if (!char.skills[skillId]) char.skills[skillId] = { attr: def?.defaultAttr || 'int', profLevel: 0, bonus: 0 };
     char.skills[skillId].profLevel = ((char.skills[skillId].profLevel || 0) + 1) % 3;
-    renderSkillsList(char, this.skillSortMode);
+    renderSkillsList(char, this.skillSortMode, true);
     this.scheduleAutoSave();
   }
 
@@ -1578,20 +1589,20 @@ class BeyonderGrimoireController {
     if (!char.skills) char.skills = {};
     if (!char.skills[skillId]) char.skills[skillId] = { attr: def?.defaultAttr || 'int', profLevel: 0, bonus: 0 };
     char.skills[skillId][field] = value;
-    renderSkillsList(char, this.skillSortMode);
+    renderSkillsList(char, this.skillSortMode, field === 'attr');
     this.scheduleAutoSave();
   }
 
   // --- COLEÇÕES E CONTROLE DE MUNIÇÃO ---
-  renderSpecificCollection(char, collectionKey) {
+  renderSpecificCollection(char, collectionKey, forceRebuild = false) {
     const rendererMap = {
-      weapons: () => renderWeaponsList(char),
-      equipment: () => renderEquipmentList(char),
-      powers: () => renderMysticList(char, 'powers'),
-      spells: () => renderMysticList(char, 'spells'),
-      mutations: () => renderMutationsList(char),
-      resistances: () => renderResistancesAndWeaknesses(char),
-      weaknesses: () => renderResistancesAndWeaknesses(char)
+      weapons: () => renderWeaponsList(char, forceRebuild),
+      equipment: () => renderEquipmentList(char, forceRebuild),
+      powers: () => renderMysticList(char, 'powers', forceRebuild),
+      spells: () => renderMysticList(char, 'spells', forceRebuild),
+      mutations: () => renderMutationsList(char, forceRebuild),
+      resistances: () => renderResistancesAndWeaknesses(char, forceRebuild),
+      weaknesses: () => renderResistancesAndWeaknesses(char, forceRebuild)
     };
     if (rendererMap[collectionKey]) rendererMap[collectionKey]();
     renderPlayerActionEconomyAndFilter(char, this.actionFilterMode);
@@ -1602,7 +1613,7 @@ class BeyonderGrimoireController {
     if (!char) return;
     if (!Array.isArray(char[collectionKey])) char[collectionKey] = [];
     char[collectionKey].push(createCollectionItemTemplate(collectionKey, char));
-    this.renderSpecificCollection(char, collectionKey);
+    this.renderSpecificCollection(char, collectionKey, true);
     this.scheduleAutoSave();
   }
 
@@ -1611,9 +1622,9 @@ class BeyonderGrimoireController {
     if (!char?.[collectionKey]?.[index]) return;
     char[collectionKey][index][field] = value;
     if (shouldReRender) {
-      this.renderSpecificCollection(char, collectionKey);
+      this.renderSpecificCollection(char, collectionKey, true);
     } else {
-      renderPlayerActionEconomyAndFilter(char, this.actionFilterMode);
+      this.renderSpecificCollection(char, collectionKey, false);
     }
     this.scheduleAutoSave();
   }
@@ -1622,7 +1633,7 @@ class BeyonderGrimoireController {
     const char = this.getActiveChar();
     if (!char?.[collectionKey]) return;
     char[collectionKey].splice(index, 1);
-    this.renderSpecificCollection(char, collectionKey);
+    this.renderSpecificCollection(char, collectionKey, true);
     this.scheduleAutoSave();
   }
 
@@ -1632,7 +1643,7 @@ class BeyonderGrimoireController {
     if (!w) return;
     const max = Math.max(1, Number(w.ammoMax ?? 6));
     w.ammoCurrent = clamp((Number(w.ammoCurrent ?? max) + delta), 0, max);
-    this.renderSpecificCollection(char, 'weapons');
+    this.renderSpecificCollection(char, 'weapons', true);
     this.scheduleAutoSave();
   }
 
@@ -1641,7 +1652,7 @@ class BeyonderGrimoireController {
     const w = char?.weapons?.[idx];
     if (!w) return;
     w.ammoCurrent = Math.max(1, Number(w.ammoMax ?? 6));
-    this.renderSpecificCollection(char, 'weapons');
+    this.renderSpecificCollection(char, 'weapons', true);
     this.scheduleAutoSave();
     showToast(`${w.name} recarregada (${w.ammoCurrent}/${w.ammoMax})!`);
   }

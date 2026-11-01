@@ -26,8 +26,12 @@ import {
   formatSigned,
   calcPercentage,
   escapeHtml,
-  setInputValueIfNotFocused
+  setInputValueIfNotFocused,
+  isUserTypingInContainer
 } from '../utils/helpers.js';
+
+let lastAnimatedLogKey = null;
+let lastRenderedDiceFeedSignature = '';
 
 export function getActionTypeMeta(actionKey) {
   return ACTION_TYPES.find(a => a.key === actionKey) || ACTION_TYPES[0];
@@ -786,9 +790,10 @@ function renderGMVitalBar(charId, key, label, icon, textColor, barColor, vitalOb
 // ---------------------------------------------------------------------------
 // 3B. ABA DE CAMPANHA DO MESTRE
 // ---------------------------------------------------------------------------
-export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState) {
+export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, forceRebuild = false) {
   const container = document.getElementById('gmCampaignManagerContent');
   if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
 
   const campaigns = campaignState?.campaigns || [];
   const activeCamp = campaigns.find(c => c.id === campaignState?.activeCampaignId) || campaigns[0];
@@ -1353,9 +1358,10 @@ export function renderSequenceSummariesList(char, isGMUser = false) {
   containers.forEach(c => { c.innerHTML = html; });
 }
 
-export function renderDowntimeTab(char, campaignState) {
+export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
   const container = document.getElementById('downtimeTabContainer');
   if (!container || !char) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
 
   const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
   const currentWeekNum = activeCamp?.currentWeek || char.weeklyDowntime?.weekNumber || 1;
@@ -1549,8 +1555,18 @@ export function renderDowntimeTab(char, campaignState) {
   `;
 }
 
-export function renderAttributesSection(char) {
+export function renderAttributesSection(char, forceRebuild = false) {
   const container = document.getElementById('attributesContainer');
+  if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) {
+    ATTRIBUTES_DEF.forEach(attr => {
+      const data = char.attributes?.[attr.key] || { value: 10, bonus: 0 };
+      const mod = calcAttrMod(data.value, data.bonus);
+      const btn = document.getElementById(`attrModBtn_${attr.key}`);
+      if (btn) btn.textContent = formatSigned(mod);
+    });
+    return;
+  }
   container.innerHTML = ATTRIBUTES_DEF.map(attr => {
     const data = char.attributes?.[attr.key] || { value: 10, bonus: 0 };
     const mod = calcAttrMod(data.value, data.bonus);
@@ -1567,7 +1583,7 @@ export function renderAttributesSection(char) {
           </button>
         </div>
 
-        <button onclick="app.rollAttributeCheck('${attr.key}')" class="my-1 px-4 py-1 rounded-full bg-obsidian-950/90 border border-brass-400/40 font-display font-extrabold text-xl text-brass-200 hover:border-brass-300 transition-all">
+        <button id="attrModBtn_${attr.key}" onclick="app.rollAttributeCheck('${attr.key}')" class="my-1 px-4 py-1 rounded-full bg-obsidian-950/90 border border-brass-400/40 font-display font-extrabold text-xl text-brass-200 hover:border-brass-300 transition-all">
           ${formatSigned(mod)}
         </button>
 
@@ -1590,9 +1606,21 @@ export function renderAttributesSection(char) {
   }).join('');
 }
 
-export function renderSavingThrowsSection(char) {
+export function renderSavingThrowsSection(char, forceRebuild = false) {
   const container = document.getElementById('savingThrowsContainer');
+  if (!container) return;
   const profBonus = Number(char.proficiencyBonus) || 2;
+  if (!forceRebuild && isUserTypingInContainer(container)) {
+    SAVING_THROWS_DEF.forEach(sv => {
+      const svData = char.savingThrows?.[sv.key] || { proficient: false, bonus: 0 };
+      const attrObj = char.attributes?.[sv.defaultAttr] || { value: 10, bonus: 0 };
+      const attrMod = calcAttrMod(attrObj.value, attrObj.bonus);
+      const total = attrMod + (svData.proficient ? profBonus : 0) + (Number(svData.bonus) || 0);
+      const spanEl = document.getElementById(`saveRollTotal_${sv.key}`);
+      if (spanEl) spanEl.textContent = formatSigned(total);
+    });
+    return;
+  }
 
   container.innerHTML = SAVING_THROWS_DEF.map(sv => {
     const svData = char.savingThrows?.[sv.key] || { proficient: false, bonus: 0 };
@@ -1618,7 +1646,7 @@ export function renderSavingThrowsSection(char) {
           <button onclick="app.rollSavingThrow('${sv.key}')"
             class="px-2 py-1 rounded bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/30 font-display font-bold text-xs flex items-center gap-1 transition-all min-w-[52px] justify-center">
             <i class="fa-solid fa-dice-d20 text-[10px]"></i>
-            <span>${formatSigned(total)}</span>
+            <span id="saveRollTotal_${sv.key}">${formatSigned(total)}</span>
           </button>
         </div>
       </div>
@@ -1626,11 +1654,24 @@ export function renderSavingThrowsSection(char) {
   }).join('');
 }
 
-export function renderSkillsList(char, sortMode = 'alpha') {
+export function renderSkillsList(char, sortMode = 'alpha', forceRebuild = false) {
   if (!char) return;
   const container = document.getElementById('skillsListContainer');
-  const filterText = (document.getElementById('skillSearchInput')?.value || '').toLowerCase().trim();
+  if (!container) return;
   const profBonus = Number(char.proficiencyBonus) || 2;
+  if (!forceRebuild && isUserTypingInContainer(container)) {
+    SKILLS_DEF.forEach(sk => {
+      const skData = char.skills?.[sk.id] || { attr: sk.defaultAttr, profLevel: 0, bonus: 0 };
+      const chosenAttr = skData.attr || sk.defaultAttr;
+      const attrObj = char.attributes?.[chosenAttr] || { value: 10, bonus: 0 };
+      const attrMod = calcAttrMod(attrObj.value, attrObj.bonus);
+      const total = attrMod + ((skData.profLevel || 0) * profBonus) + (Number(skData.bonus) || 0);
+      const spanEl = document.getElementById(`skillRollTotal_${sk.id}`);
+      if (spanEl) spanEl.textContent = formatSigned(total);
+    });
+    return;
+  }
+  const filterText = (document.getElementById('skillSearchInput')?.value || '').toLowerCase().trim();
 
   const btnAlpha = document.getElementById('btnSortSkillsAlpha');
   const btnAttr = document.getElementById('btnSortSkillsAttr');
@@ -1681,7 +1722,7 @@ export function renderSkillsList(char, sortMode = 'alpha') {
           <button onclick="app.rollSkillCheck('${sk.id}')"
             class="px-2.5 py-1 rounded bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/35 font-display font-bold text-xs flex items-center gap-1.5 transition-all min-w-[56px] justify-center">
             <i class="fa-solid fa-dice-d20 text-[10px]"></i>
-            <span>${formatSigned(total)}</span>
+            <span id="skillRollTotal_${sk.id}">${formatSigned(total)}</span>
           </button>
         </div>
       </div>
@@ -1863,9 +1904,19 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
   }).join('');
 }
 
-export function renderWeaponsList(char) {
+export function renderWeaponsList(char, forceRebuild = false) {
   const container = document.getElementById('weaponsListContainer');
+  if (!container) return;
   const weapons = char.weapons || [];
+  if (!forceRebuild && isUserTypingInContainer(container)) {
+    weapons.forEach((w, idx) => {
+      const atkSpan = document.getElementById(`weaponAtkBtnLabel_${idx}`);
+      if (atkSpan) atkSpan.textContent = `Atacar (${formatSigned(w.attackBonus ?? 0)})`;
+      const dmgSpan = document.getElementById(`weaponDmgBtnLabel_${idx}`);
+      if (dmgSpan) dmgSpan.textContent = `Dano (${w.damage || '1d6'})`;
+    });
+    return;
+  }
   if (weapons.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">Nenhuma arma ou ataque cadastrado.</p>`;
     return;
@@ -1945,10 +1996,10 @@ export function renderWeaponsList(char) {
 
           <div class="flex items-center gap-1.5">
             <button onclick="app.rollWeaponAttack(${idx}, true)" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
-              <i class="fa-solid fa-dice-d20"></i> Atacar (${formatSigned(w.attackBonus ?? 0)})
+              <i class="fa-solid fa-dice-d20"></i> <span id="weaponAtkBtnLabel_${idx}">Atacar (${formatSigned(w.attackBonus ?? 0)})</span>
             </button>
             <button onclick="app.rollWeaponDamage(${idx})" class="px-3 py-1.5 rounded-lg bg-crimson-900/40 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
-              <i class="fa-solid fa-burst"></i> Dano (${escapeHtml(w.damage || '1d6')})
+              <i class="fa-solid fa-burst"></i> <span id="weaponDmgBtnLabel_${idx}">Dano (${escapeHtml(w.damage || '1d6')})</span>
             </button>
             <button onclick="app.removeCollectionItem('weapons', ${idx})" class="p-1.5 rounded-lg bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
               <i class="fa-solid fa-trash"></i>
@@ -1960,8 +2011,10 @@ export function renderWeaponsList(char) {
   }).join('');
 }
 
-export function renderEquipmentList(char) {
+export function renderEquipmentList(char, forceRebuild = false) {
   const container = document.getElementById('equipmentListContainer');
+  if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
   const items = char.equipment || [];
   if (items.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">Nenhum equipamento ou artefato selado registrado.</p>`;
@@ -1995,9 +2048,11 @@ export function renderEquipmentList(char) {
   `).join('');
 }
 
-export function renderMysticList(char, collectionKey) {
+export function renderMysticList(char, collectionKey, forceRebuild = false) {
   const isPowers = collectionKey === 'powers';
   const container = document.getElementById(isPowers ? 'powersListContainer' : 'spellsListContainer');
+  if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
   const list = char[collectionKey] || [];
 
   if (list.length === 0) {
@@ -2056,8 +2111,10 @@ export function renderMysticList(char, collectionKey) {
   }).join('');
 }
 
-export function renderMutationsList(char) {
+export function renderMutationsList(char, forceRebuild = false) {
   const container = document.getElementById('mutationsListContainer');
+  if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
   const mutations = char.mutations || [];
   if (mutations.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">Nenhuma mutação física, mental ou espiritual registrada.</p>`;
@@ -2091,8 +2148,6 @@ export function renderMutationsList(char) {
 }
 
 export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId = null, viewMode = 'sheet', currentUser = null) {
-  renderSharedDiceTicker(diceLogs, campaignState, activeCharacterId, viewMode, currentUser);
-
   const feed = document.getElementById('diceLogFeed');
   if (!feed) return;
 
@@ -2100,6 +2155,9 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
   const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
 
   if (!canSeeRolls) {
+    const restrictedSig = `restricted::${activeCamp?.id || ''}`;
+    if (lastRenderedDiceFeedSignature === restrictedSig) return;
+    lastRenderedDiceFeedSignature = restrictedSig;
     feed.innerHTML = `
       <div class="h-full flex flex-col items-center justify-center text-center p-6 text-amber-300/80">
         <i class="fa-solid fa-lock text-3xl mb-2 text-amber-400"></i>
@@ -2119,6 +2177,10 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
   }
 
   if (visibleLogs.length === 0) {
+    const emptySig = `empty::${activeCamp?.id || ''}`;
+    if (lastRenderedDiceFeedSignature === emptySig) return;
+    lastRenderedDiceFeedSignature = emptySig;
+    lastAnimatedLogKey = '';
     feed.innerHTML = `
       <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
         <i class="fa-solid fa-dice-d20 text-3xl mb-2 text-slate-600"></i>
@@ -2127,6 +2189,19 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
     `;
     return;
   }
+
+  const topLog = visibleLogs[0];
+  const topKey = topLog ? `${topLog.id || ''}_${topLog.timestamp || ''}_${topLog.total || ''}` : '';
+  const feedSig = `logs::${activeCamp?.id || ''}::${visibleLogs.length}::${topKey}`;
+
+  // Se a lista de dados não mudou, NÃO reconstrói o HTML nem refaz a animação do dado já jogado!
+  if (feedSig === lastRenderedDiceFeedSignature) {
+    return;
+  }
+
+  const shouldAnimateTop = lastAnimatedLogKey !== null && topKey !== '' && topKey !== lastAnimatedLogKey;
+  lastAnimatedLogKey = topKey;
+  lastRenderedDiceFeedSignature = feedSig;
 
   feed.innerHTML = visibleLogs.map((log, idx) => {
     const critClass = log.isCrit ? 'crit-success' : (log.isFail ? 'crit-fail' : 'bg-obsidian-950/90 border-slate-800/90');
@@ -2143,7 +2218,7 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
     });
 
     return `
-      <div class="rounded-xl p-3 border ${critClass} ${idx === 0 ? 'animate-dice' : ''}">
+      <div class="rounded-xl p-3 border ${critClass} ${(idx === 0 && shouldAnimateTop) ? 'animate-dice' : ''}">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -2242,10 +2317,11 @@ export function renderAccountManagerModalContent(allUsers, currentUser) {
 }
 
 
-export function renderResistancesAndWeaknesses(char) {
+export function renderResistancesAndWeaknesses(char, forceRebuild = false) {
   if (!char) return;
   const resContainer = document.getElementById('resistancesListContainer');
   const wkContainer = document.getElementById('weaknessesListContainer');
+  if (!forceRebuild && (isUserTypingInContainer(resContainer) || isUserTypingInContainer(wkContainer))) return;
 
   if (resContainer) {
     const resList = char.resistances || [];
@@ -2348,9 +2424,10 @@ export function renderResistancesAndWeaknesses(char) {
   }
 }
 
-export function renderGMStoreManager(charactersMap, campaignState) {
+export function renderGMStoreManager(charactersMap, campaignState, forceRebuild = false) {
   const container = document.getElementById('gmStoreManagerContent');
   if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
 
   const campaigns = campaignState?.campaigns || [];
   const activeCamp = campaigns.find(c => c.id === campaignState?.activeCampaignId) || campaigns[0];
@@ -2622,9 +2699,10 @@ export function renderGMStoreManager(charactersMap, campaignState) {
   `;
 }
 
-export function renderCampaignStoreTab(char, campaignState, currentUser, storeUIState = null) {
+export function renderCampaignStoreTab(char, campaignState, currentUser, storeUIState = null, forceRebuild = false) {
   const container = document.getElementById('campaignStoreTabContainer');
   if (!container || !char) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
 
   const isGMUser = currentUser?.role === 'gm';
   const ui = storeUIState || { subTab: 'items', categoryFilter: 'all', searchText: '' };

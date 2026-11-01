@@ -38,6 +38,28 @@ export function setInputValueIfNotFocused(elementId, value) {
   }
 }
 
+export function isUserTypingInContainer(containerEl) {
+  if (!containerEl || !document.activeElement) return false;
+  const active = document.activeElement;
+  const tag = (active.tagName || '').toLowerCase();
+  if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') return false;
+  if (tag === 'input' && ['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes((active.type || '').toLowerCase())) {
+    return false;
+  }
+  return containerEl.contains(active);
+}
+
+export function isUserTypingAnywhere() {
+  if (!document.activeElement) return false;
+  const active = document.activeElement;
+  const tag = (active.tagName || '').toLowerCase();
+  if (tag !== 'input' && tag !== 'textarea') return false;
+  if (tag === 'input' && ['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes((active.type || '').toLowerCase())) {
+    return false;
+  }
+  return true;
+}
+
 export async function sha256Hash(text) {
   const normalized = String(text || '').trim();
   try {
@@ -48,7 +70,6 @@ export async function sha256Hash(text) {
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   } catch (_) {}
-  // Fallback hash determinístico caso SubtleCrypto não esteja disponível
   let h = 2166136261;
   for (let i = 0; i < normalized.length; i++) {
     h ^= normalized.charCodeAt(i);
