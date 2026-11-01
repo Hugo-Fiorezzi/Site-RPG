@@ -31,8 +31,8 @@ const LOCAL_SESSION_KEY = 'grimorio_beyonder_session_v1';
 const LOCAL_FIREBASE_CFG_KEY = 'grimorio_beyonder_firebase_config_v1';
 const LOCAL_GM_SECRET_HASH_KEY = 'grimorio_beyonder_gm_secret_hash_v1';
 
-// Opcional: Cole aqui as credenciais do seu Firebase para conectar todos automaticamente sem precisar configurar pelo navegador
-const firebaseConfig = {
+// Credenciais do Firebase da mesa (inseridas com sucesso):
+export const firebaseConfig = {
   apiKey: "AIzaSyBVZufLIUiqbSUfXOL3HURMaY9LohT34pY",
   authDomain: "grimorio-beyonder.firebaseapp.com",
   databaseURL: "https://grimorio-beyonder-default-rtdb.firebaseio.com",
@@ -42,6 +42,7 @@ const firebaseConfig = {
   appId: "1:182655045756:web:fef1fe8bf8e14e729c39f9",
   measurementId: "G-KTNGLWCSL3"
 };
+export const FIXED_FIREBASE_CONFIG = firebaseConfig;
 
 export class StorageService {
   constructor({
@@ -70,7 +71,10 @@ export class StorageService {
 
   getSavedFirebaseConfig() {
     try {
-      if (FIXED_FIREBASE_CONFIG && FIXED_FIREBASE_CONFIG.apiKey && FIXED_FIREBASE_CONFIG.projectId) {
+      if (typeof firebaseConfig !== 'undefined' && firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
+        return firebaseConfig;
+      }
+      if (typeof FIXED_FIREBASE_CONFIG !== 'undefined' && FIXED_FIREBASE_CONFIG && FIXED_FIREBASE_CONFIG.apiKey && FIXED_FIREBASE_CONFIG.projectId) {
         return FIXED_FIREBASE_CONFIG;
       }
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
