@@ -37,13 +37,3 @@ Você pode conectar o banco de duas maneiras:
 - **Pela interface do próprio site:** Abra o site, clique no botão **"Banco & Site Grátis"** no topo, cole o seu JSON `firebaseConfig` e clique em **Salvar & Conectar ao Banco Cloud**.
 - **Ou fixo no código (para que todos os jogadores já entrem conectados automaticamente):** Abra o arquivo `js/services/storageService.js` (ou o topo do `index.html`) e defina `window.__firebase_config = JSON.stringify({ ...seu firebaseConfig... });`.
 
----
-
-## 4. Contas Padrão e Segurança do Mestre
-
-- **Login do Mestre (Demonstração):**
-  - **E-mail:** `mestre@grimorio.rpg`
-  - **Senha:** `mestre123`
-- **Chave Secreta para Criar Nova Conta de Mestre:**
-  - Padrão inicial: `tolo` (pode ser alterada pelo Mestre a qualquer momento dentro do Painel do Mestre).
-  - Jogadores que criam contas com o papel **Jogador** só conseguem criar e ver suas próprias fichas, não têm acesso ao Painel do Mestre, e o Mestre visualiza todas as fichas criadas para escalá-las nas campanhas.
