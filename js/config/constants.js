@@ -316,6 +316,22 @@ export const DEFAULT_CAMPAIGN_STATE = {
       storeItems: JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS)),
       contributionTasks: JSON.parse(JSON.stringify(DEFAULT_CONTRIBUTION_TASKS)),
       contributionLogs: [],
+      weeklyLetters: [
+        {
+          id: 'sample_letter_1',
+          weekNumber: 1,
+          dayKey: 'terca',
+          dayLabel: 'Terça-feira',
+          fromCharId: 'sample_audrey_hall',
+          fromCharName: 'Audrey Hall (Srta. Justiça)',
+          toCharId: 'sample_klein_moretti',
+          toCharName: 'Klein Moretti (O Tolo)',
+          subject: 'Páginas do Diário de Roselle',
+          content: 'Consegui adquirir mais duas páginas escritas em símbolos estranhos com um nobre em Backlund. Enviarei na próxima reunião.',
+          status: 'approved',
+          dateStr: 'Semana 1 • Terça-feira'
+        }
+      ],
       createdAt: Date.now()
     }
   ],
@@ -418,10 +434,12 @@ export function createDefaultWeeklyDowntime(weekNumber = 1) {
   WEEK_DAYS_DEF.forEach(d => {
     days[d.key] = {
       isMissionDay: false,
+      daySubmitted: false,
       playerActivity: '',
       gmRequestedTest: '',
       gmTestDC: 12,
       playerRollResult: null,
+      allowReroll: false,
       gmFeedback: '',
       outcomes: [],
       deltas: {

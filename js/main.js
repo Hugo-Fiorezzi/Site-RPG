@@ -808,16 +808,147 @@ class BeyonderGrimoireController {
     this.storage.saveCharacter(char, this.charactersMap);
   }
 
+  async submitSingleDowntimeDay(charId, dayKey) {
+    const char = this.charactersMap[charId] || this.getActiveChar();
+    if (!char) return;
+    const dt = this.ensureCharDowntime(char);
+    if (!dt.days[dayKey]) {
+      dt.days[dayKey] = createDefaultWeeklyDowntime(dt.weekNumber || 1).days[dayKey];
+    }
+    const dayObj = dt.days[dayKey];
+    if (!dayObj.playerActivity || !dayObj.playerActivity.trim()) {
+      showToast('Escreva o que seu personagem fez neste dia antes de enviar.', 'error');
+      return;
+    }
+    dayObj.daySubmitted = true;
+    char.updatedAt = Date.now();
+
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    const dayDef = WEEK_DAYS_DEF.find(d => d.key === dayKey);
+    showToast(`${dayDef?.label || 'Dia'} enviado para avaliação do Mestre!`, 'crit');
+  }
+
   async submitWeeklyDowntimeToGM() {
     const char = this.getActiveChar();
     if (!char) return;
     const dt = this.ensureCharDowntime(char);
     dt.submittedToGM = true;
     dt.submittedAt = Date.now();
+    WEEK_DAYS_DEF.forEach(d => {
+      if (dt.days?.[d.key] && dt.days[d.key].playerActivity?.trim()) {
+        dt.days[d.key].daySubmitted = true;
+      }
+    });
+    char.updatedAt = Date.now();
 
     this.renderAll();
     await this.storage.saveCharacter(char, this.charactersMap);
-    showToast(`Semana de ${char.name} enviada para análise do Mestre!`);
+    showToast(`Semana de ${char.name} enviada para análise do Mestre!`, 'crit');
+  }
+
+  async gmToggleDowntimeReroll(charId, dayKey) {
+    if (!this.isGMUser()) return;
+    const char = this.charactersMap[charId];
+    if (!char) return;
+    const dt = this.ensureCharDowntime(char);
+    const dayObj = dt.days?.[dayKey];
+    if (!dayObj) return;
+
+    dayObj.allowReroll = !dayObj.allowReroll;
+    char.updatedAt = Date.now();
+
+    this.renderAll();
+    await this.storage.saveCharacter(char, this.charactersMap);
+    const dayDef = WEEK_DAYS_DEF.find(d => d.key === dayKey);
+    showToast(
+      dayObj.allowReroll
+        ? `Liberado para ${char.name} rejogar o dado de ${dayDef?.label || dayKey}!`
+        : `Re-rolagem bloqueada novamente em ${dayDef?.label || dayKey}.`
+    );
+  }
+
+  async sendWeeklyLetter() {
+    const char = this.getActiveChar();
+    const camp = this.getCampaignForChar(char);
+    if (!char || !camp) return;
+
+    const dayKey = document.getElementById('letterDaySelect')?.value || 'segunda';
+    const toCharId = document.getElementById('letterRecipientSelect')?.value || '';
+    const subject = document.getElementById('letterSubjectInput')?.value.trim() || '';
+    const content = document.getElementById('letterBodyInput')?.value.trim() || '';
+
+    if (!toCharId) {
+      showToast('Selecione um personagem destinatário na campanha.', 'error');
+      return;
+    }
+    if (!content) {
+      showToast('Escreva a mensagem da carta antes de enviar.', 'error');
+      return;
+    }
+
+    const toChar = this.charactersMap[toCharId];
+    const dayDef = WEEK_DAYS_DEF.find(d => d.key === dayKey);
+
+    if (!Array.isArray(camp.weeklyLetters)) camp.weeklyLetters = [];
+    const autoApproved = this.isGMUser();
+
+    camp.weeklyLetters.unshift({
+      id: `letter_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      weekNumber: camp.currentWeek || 1,
+      dayKey,
+      dayLabel: dayDef?.label || 'Semana',
+      fromCharId: char.id,
+      fromCharName: char.name,
+      toCharId,
+      toCharName: toChar ? toChar.name : 'Destinatário',
+      subject,
+      content,
+      status: autoApproved ? 'approved' : 'pending',
+      dateStr: `Semana ${camp.currentWeek || 1} • ${dayDef?.label || ''}`
+    });
+
+    const subjEl = document.getElementById('letterSubjectInput');
+    const bodyEl = document.getElementById('letterBodyInput');
+    if (subjEl) subjEl.value = '';
+    if (bodyEl) bodyEl.value = '';
+
+    this.renderAll();
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
+    showToast(
+      autoApproved
+        ? `Carta enviada e entregue para ${toChar?.name || 'o destinatário'}!`
+        : `Carta enviada! Aguardando aprovação do Mestre para chegar a ${toChar?.name || 'o destinatário'}.`,
+      'crit'
+    );
+  }
+
+  async gmModerateWeeklyLetter(letterId, newStatus) {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    if (!camp || !Array.isArray(camp.weeklyLetters)) return;
+    const letter = camp.weeklyLetters.find(l => l.id === letterId);
+    if (!letter) return;
+
+    letter.status = newStatus;
+    this.renderAll();
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast(
+      newStatus === 'approved'
+        ? `Carta de ${letter.fromCharName} para ${letter.toCharName} aprovada e entregue!`
+        : `Carta interceptada/recusada pelo Mestre.`,
+      newStatus === 'approved' ? 'crit' : 'error'
+    );
+  }
+
+  async gmDeleteWeeklyLetter(letterId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getActiveCampaign();
+    if (!camp || !Array.isArray(camp.weeklyLetters)) return;
+    camp.weeklyLetters = camp.weeklyLetters.filter(l => l.id !== letterId);
+    this.renderAll();
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast('Carta removida do registro.');
   }
 
   rollDowntimeRequestedTest(charId, dayKey) {
@@ -826,6 +957,12 @@ class BeyonderGrimoireController {
     const dt = this.ensureCharDowntime(char);
     const dayObj = dt.days?.[dayKey];
     if (!dayObj || !dayObj.gmRequestedTest) return;
+
+    // Bloqueia rejogar o dado do teste da semana a menos que o Mestre tenha permitido!
+    if (dayObj.playerRollResult && !dayObj.allowReroll && !this.isGMUser()) {
+      showToast('Você já rolou o dado deste dia! Apenas o Mestre pode liberar uma nova tentativa.', 'error');
+      return;
+    }
 
     const testKey = dayObj.gmRequestedTest;
     const dayDef = WEEK_DAYS_DEF.find(d => d.key === dayKey);
@@ -865,6 +1002,8 @@ class BeyonderGrimoireController {
       details: rollRes.details,
       timestamp: Date.now()
     };
+    dayObj.allowReroll = false;
+    char.updatedAt = Date.now();
 
     this.publishRoll({
       ...rollRes,

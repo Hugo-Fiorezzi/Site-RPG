@@ -1024,41 +1024,54 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
                             </p>
                           ` : `
                             <div class="bg-obsidian-950/90 p-2.5 rounded-lg border border-slate-800/80">
-                              <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1 flex justify-between">
-                                <span>Relato do Jogador:</span>
-                                ${dayObj.applied ? '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-0.5"></i>Aplicado na Ficha</span>' : ''}
+                              <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1 flex flex-wrap items-center justify-between gap-1">
+                                <div class="flex items-center gap-1.5">
+                                  <span>Relato do Jogador:</span>
+                                  ${(dayObj.daySubmitted || dt.submittedToGM)
+                                    ? '<span class="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold"><i class="fa-solid fa-paper-plane mr-0.5"></i>Dia Enviado</span>'
+                                    : '<span class="px-1.5 py-0.2 rounded bg-obsidian-900 text-slate-500 border border-slate-800 text-[9px]">Rascunho</span>'
+                                  }
+                                </div>
+                                ${dayObj.applied ? '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-0.5"></i>Feedback & Dia Aplicados</span>' : ''}
                               </div>
                               <p class="text-xs ${dayObj.playerActivity ? 'text-slate-200' : 'text-slate-500 italic'}">
                                 ${dayObj.playerActivity ? escapeHtml(dayObj.playerActivity) : 'Nenhuma atividade descrita pelo jogador para este dia.'}
                               </p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-obsidian-950/60 p-2 rounded-lg border border-slate-800/70">
-                              <div class="sm:col-span-7">
-                                <label class="block text-[9px] uppercase text-brass-300 mb-0.5">Pedir Teste ao Jogador</label>
-                                <select onchange="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmRequestedTest', this.value, true)"
-                                  class="sheet-input w-full px-2 py-1 rounded text-[11px] text-amber-200">
-                                  ${testSelectOptionsHtml(dayObj.gmRequestedTest)}
-                                </select>
-                              </div>
-                              <div class="sm:col-span-2">
-                                <label class="block text-[9px] uppercase text-slate-400 mb-0.5">DT / Dif.</label>
-                                <input type="number" value="${dayObj.gmTestDC ?? 12}"
-                                  onchange="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmTestDC', Number(this.value))"
-                                  class="sheet-input w-full text-center py-1 rounded text-[11px] font-bold text-brass-200" />
-                              </div>
-                              <div class="sm:col-span-3 flex flex-col items-end justify-center">
-                                ${dayObj.playerRollResult ? `
-                                  <span class="text-[9px] uppercase text-slate-400">Rolagem:</span>
-                                  <span class="px-2 py-0.5 rounded font-display font-extrabold text-xs ${dayObj.playerRollResult.total >= (dayObj.gmTestDC || 12) ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-crimson-950 text-crimson-300 border border-crimson-500/40'}" title="${escapeHtml(dayObj.playerRollResult.details || '')}">
-                                    ${dayObj.playerRollResult.total} (DT ${dayObj.gmTestDC ?? 12})
-                                  </span>
-                                ` : dayObj.gmRequestedTest ? `
-                                  <button onclick="app.rollDowntimeRequestedTest('${ch.id}', '${d.key}')"
-                                    class="w-full py-1 px-2 rounded bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 text-[10px] font-bold transition-all">
-                                    <i class="fa-solid fa-dice-d20 mr-0.5"></i> Rolar
-                                  </button>
-                                ` : `<span class="text-[10px] text-slate-500 italic">Livre</span>`}
+                            <div class="bg-obsidian-950/60 p-2.5 rounded-lg border border-slate-800/70 space-y-2">
+                              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                                <div class="sm:col-span-6">
+                                  <label class="block text-[9px] uppercase text-brass-300 mb-0.5">Pedir Dado (Opcional)</label>
+                                  <select onchange="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmRequestedTest', this.value, true)"
+                                    class="sheet-input w-full px-2 py-1 rounded text-[11px] text-amber-200">
+                                    ${testSelectOptionsHtml(dayObj.gmRequestedTest)}
+                                  </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                  <label class="block text-[9px] uppercase text-slate-400 mb-0.5">DT / Dif.</label>
+                                  <input type="number" value="${dayObj.gmTestDC ?? 12}"
+                                    onchange="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmTestDC', Number(this.value))"
+                                    class="sheet-input w-full text-center py-1 rounded text-[11px] font-bold text-brass-200" />
+                                </div>
+                                <div class="sm:col-span-4 flex flex-col items-end justify-center gap-1">
+                                  ${dayObj.playerRollResult ? `
+                                    <div class="flex items-center gap-1 flex-wrap justify-end">
+                                      <span class="px-2 py-0.5 rounded font-display font-extrabold text-xs ${dayObj.playerRollResult.total >= (dayObj.gmTestDC || 12) ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-crimson-950 text-crimson-300 border border-crimson-500/40'}" title="${escapeHtml(dayObj.playerRollResult.details || '')}">
+                                        Dado: ${dayObj.playerRollResult.total} (DT ${dayObj.gmTestDC ?? 12})
+                                      </span>
+                                      <button onclick="app.gmToggleDowntimeReroll('${ch.id}', '${d.key}')"
+                                        title="Permitir ou bloquear que o jogador re-jogue o dado deste dia"
+                                        class="px-2 py-0.5 rounded text-[9px] font-bold border transition-all ${dayObj.allowReroll ? 'bg-amber-400 text-obsidian-950 border-amber-300' : 'bg-obsidian-900 hover:bg-amber-950 text-amber-300 border-amber-500/40'}">
+                                        <i class="fa-solid ${dayObj.allowReroll ? 'fa-unlock' : 'fa-rotate-right'} mr-0.5"></i>${dayObj.allowReroll ? 'Rejogar Liberado' : 'Permitir Rejogar'}
+                                      </button>
+                                    </div>
+                                  ` : dayObj.gmRequestedTest ? `
+                                    <span class="px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-500/30 text-[10px] font-semibold">
+                                      Aguardando Jogador Rolar
+                                    </span>
+                                  ` : `<span class="text-[10px] text-emerald-400/90 font-semibold"><i class="fa-solid fa-bolt mr-1"></i>Sem Dado (Feedback Direto)</span>`}
+                                </div>
                               </div>
                             </div>
 
@@ -1121,21 +1134,107 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
                                 class="sheet-input px-2 py-1 rounded text-[11px] text-emerald-200" />
                             </div>
 
-                            <div class="flex items-center gap-2">
-                              <input type="text" value="${escapeHtml(dayObj.gmFeedback || '')}"
-                                onchange="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmFeedback', this.value)"
-                                placeholder="Resposta/narração do Mestre para este dia..."
-                                class="sheet-input flex-1 px-2.5 py-1 rounded text-xs text-slate-200" />
-                              <button onclick="app.applySingleDayOutcomeToChar('${ch.id}', '${d.key}')"
-                                title="Aplicar imediatamente os ajustes deste dia na ficha do jogador"
-                                class="px-2.5 py-1 rounded ${dayObj.applied ? 'bg-obsidian-800 text-slate-400 border-slate-700' : 'bg-emerald-600/30 hover:bg-emerald-500 text-emerald-200 hover:text-obsidian-950 border-emerald-500/40'} border text-[10px] font-bold shrink-0 transition-all">
-                                <i class="fa-solid ${dayObj.applied ? 'fa-rotate-right' : 'fa-bolt'} mr-1"></i>${dayObj.applied ? 'Reaplicar' : 'Aplicar Dia'}
-                              </button>
+                            <div class="space-y-1.5 pt-1 border-t border-slate-800/80">
+                              <label class="block text-[9px] uppercase text-brass-300 font-bold">
+                                <i class="fa-solid fa-comment-dots mr-1"></i>Feedback do Mestre sobre o que aconteceu neste dia:
+                              </label>
+                              <div class="flex items-center gap-2">
+                                <input type="text" value="${escapeHtml(dayObj.gmFeedback || '')}"
+                                  oninput="app.updateDowntimeDayField('${ch.id}', '${d.key}', 'gmFeedback', this.value)"
+                                  placeholder="${dayObj.gmRequestedTest ? 'Escreva o desfecho após o resultado do dado...' : 'Escreva o feedback imediato deste dia (sem necessidade de rolagem)...'}"
+                                  class="sheet-input flex-1 px-2.5 py-1.5 rounded text-xs text-slate-100" />
+                                <button onclick="app.applySingleDayOutcomeToChar('${ch.id}', '${d.key}')"
+                                  title="Enviar este feedback para a ficha do jogador e aplicar efeitos do dia"
+                                  class="px-3 py-1.5 rounded-lg ${dayObj.applied ? 'bg-obsidian-800 hover:bg-emerald-600 text-emerald-300 hover:text-obsidian-950 border-emerald-500/40' : 'bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 border-emerald-400'} border text-[10px] font-display font-bold shrink-0 transition-all shadow">
+                                  <i class="fa-solid ${dayObj.applied ? 'fa-check-double' : 'fa-paper-plane'} mr-1"></i>${dayObj.applied ? 'Atualizar Feedback' : 'Enviar Feedback'}
+                                </button>
+                              </div>
                             </div>
                           `}
                         </div>
                       `;
                     }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      <!-- 2B. CORREIO DA SEMANA: APROVAÇÃO DE CARTAS ENTRE JOGADORES (MESTRE) -->
+      <div class="victorian-card-gold rounded-xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-3">
+          <div>
+            <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Correspondências & Mensagens sob o Nevoeiro</span>
+            <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+              <i class="fa-solid fa-envelope-open-text text-amber-400"></i> Correio da Semana — Aprovação de Cartas entre Jogadores
+            </h3>
+            <p class="text-xs text-slate-400">
+              Todas as cartas enviadas pelos jogadores durante os dias da semana passam por aqui. Aprove para entregar na caixa de entrada do destinatário ou intercepte/recuse.
+            </p>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-400/40 font-display font-bold text-xs">
+            ${(activeCamp.weeklyLetters || []).filter(l => l.status === 'pending').length} Pendente(s) de Aprovação
+          </span>
+        </div>
+
+        ${(!activeCamp.weeklyLetters || activeCamp.weeklyLetters.length === 0) ? `
+          <p class="text-xs text-slate-500 italic text-center py-4">Nenhuma carta foi enviada pelos jogadores nesta campanha ainda.</p>
+        ` : `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            ${(activeCamp.weeklyLetters || []).map(letter => {
+              const isPending = letter.status === 'pending';
+              const isApproved = letter.status === 'approved';
+              const statusBadge = isPending
+                ? '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/50 text-[10px] font-bold uppercase animate-pulse"><i class="fa-solid fa-hourglass-half mr-1"></i>Aguardando Aprovação</span>'
+                : isApproved
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase"><i class="fa-solid fa-check mr-1"></i>Aprovada & Entregue</span>'
+                : '<span class="px-2 py-0.5 rounded bg-crimson-950 text-crimson-300 border border-crimson-500/40 text-[10px] font-bold uppercase"><i class="fa-solid fa-ban mr-1"></i>Interceptada / Recusada</span>';
+
+              return `
+                <div class="bg-obsidian-950/90 border ${isPending ? 'border-amber-400/70 shadow-lg' : 'border-slate-800'} rounded-xl p-4 flex flex-col justify-between space-y-3">
+                  <div class="space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="px-2 py-0.5 rounded bg-obsidian-900 border border-brass-400/30 text-brass-300 text-[10px] font-display font-bold">
+                          ${escapeHtml(letter.dayLabel || 'Semana')} (Sem. ${letter.weekNumber || 1})
+                        </span>
+                        ${statusBadge}
+                      </div>
+                      <button onclick="app.gmDeleteWeeklyLetter('${letter.id}')" title="Excluir carta" class="text-slate-500 hover:text-crimson-400 text-xs">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+
+                    <div class="text-xs text-slate-300 flex flex-wrap items-center gap-1.5">
+                      <span class="text-slate-400">De:</span>
+                      <strong class="text-brass-200">${escapeHtml(letter.fromCharName || 'Remetente')}</strong>
+                      <i class="fa-solid fa-arrow-right text-[10px] text-amber-400 mx-1"></i>
+                      <span class="text-slate-400">Para:</span>
+                      <strong class="text-emerald-300">${escapeHtml(letter.toCharName || 'Destinatário')}</strong>
+                    </div>
+
+                    ${letter.subject ? `<div class="text-xs font-display font-bold text-amber-200"><i class="fa-solid fa-feather-pointed mr-1"></i>${escapeHtml(letter.subject)}</div>` : ''}
+
+                    <blockquote class="bg-obsidian-900/95 border-l-2 border-brass-400/60 p-2.5 rounded-r-lg text-xs text-slate-200 italic whitespace-pre-line leading-relaxed">
+                      "${escapeHtml(letter.content || '')}"
+                    </blockquote>
+                  </div>
+
+                  <div class="pt-2 border-t border-slate-800/80 flex items-center justify-end gap-2">
+                    ${!isApproved ? `
+                      <button onclick="app.gmModerateWeeklyLetter('${letter.id}', 'approved')"
+                        class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 font-display font-extrabold text-xs flex items-center gap-1.5 shadow transition-all">
+                        <i class="fa-solid fa-check"></i> Aprovar & Entregar Carta
+                      </button>
+                    ` : ''}
+                    ${letter.status !== 'rejected' ? `
+                      <button onclick="app.gmModerateWeeklyLetter('${letter.id}', 'rejected')"
+                        class="px-3 py-1.5 rounded-lg bg-crimson-950/80 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-ban"></i> Recusar / Interceptar
+                      </button>
+                    ` : ''}
                   </div>
                 </div>
               `;
@@ -1304,7 +1403,7 @@ export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alph
   renderEquippedItemsTab(char, charactersMap, campaignState, currentUser);
   renderCampaignStoreTab(char, campaignState, currentUser, storeUIState);
   renderSequenceSummariesList(char, isGMUser);
-  renderDowntimeTab(char, campaignState);
+  renderDowntimeTab(char, campaignState, false, charactersMap, currentUser);
 }
 
 export function renderSequenceSummariesList(char, isGMUser = false) {
@@ -1358,21 +1457,37 @@ export function renderSequenceSummariesList(char, isGMUser = false) {
   containers.forEach(c => { c.innerHTML = html; });
 }
 
-export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
+export function renderDowntimeTab(char, campaignState, forceRebuild = false, charactersMap = null, currentUser = null) {
   const container = document.getElementById('downtimeTabContainer');
   if (!container || !char) return;
   if (!forceRebuild && isUserTypingInContainer(container)) return;
 
-  const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
+  const campaigns = campaignState?.campaigns || [];
+  const activeCamp = campaigns.find(c => Array.isArray(c.characterIds) && c.characterIds.includes(char.id))
+    || campaigns.find(c => c.id === campaignState?.activeCampaignId)
+    || campaigns[0];
   const currentWeekNum = activeCamp?.currentWeek || char.weeklyDowntime?.weekNumber || 1;
   if (!char.weeklyDowntime) {
     char.weeklyDowntime = createDefaultWeeklyDowntime(currentWeekNum);
   }
   const dt = char.weeklyDowntime;
   const history = char.downtimeHistory || [];
+  const isGMUser = currentUser?.role === 'gm';
+
+  // Personagens destinatários para envio de cartas na campanha
+  const campCharIds = new Set(activeCamp?.characterIds || []);
+  const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const otherPartyChars = allChars.filter(c => c.id !== char.id && (campCharIds.size === 0 || campCharIds.has(c.id)));
+
+  const allLetters = Array.isArray(activeCamp?.weeklyLetters) ? activeCamp.weeklyLetters : [];
+  // Cartas recebidas por este personagem (APENAS as aprovadas pelo Mestre!)
+  const receivedApprovedLetters = allLetters.filter(l => l.toCharId === char.id && l.status === 'approved');
+  // Cartas enviadas por este personagem (para acompanhar status de aprovação)
+  const sentByMeLetters = allLetters.filter(l => l.fromCharId === char.id);
 
   container.innerHTML = `
     <div class="space-y-5">
+      <!-- 1. CABEÇALHO DO DIÁRIO SEMANAL -->
       <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-brass-400/20 pb-3">
           <div>
@@ -1381,15 +1496,15 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
                 Semana Atual #${currentWeekNum}
               </span>
               ${dt.submittedToGM
-                ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold text-[11px]"><i class="fa-solid fa-paper-plane mr-1"></i>Enviado ao Mestre</span>`
-                : `<span class="px-2.5 py-0.5 rounded-full bg-obsidian-800 text-slate-300 border border-slate-700 text-[11px]">Rascunho Aberto</span>`
+                ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold text-[11px]"><i class="fa-solid fa-paper-plane mr-1"></i>Semana Enviada ao Mestre</span>`
+                : `<span class="px-2.5 py-0.5 rounded-full bg-obsidian-800 text-slate-300 border border-slate-700 text-[11px]">Envie cada dia ou a semana completa</span>`
               }
             </div>
             <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 mt-1">
-              Diário Semanal Entre-Missões (Downtime)
+              Diário Semanal Entre-Missões & Correio da Campanha
             </h3>
             <p class="text-xs text-slate-400">
-              Relate ao Mestre o que <strong>${escapeHtml(char.name)}</strong> fez nos dias da semana fora de missão. O Mestre analisará cada dia, poderá solicitar testes e indicará avanço na poção, pistas descobertas, itens, perda/ganho de vida ou sanidade.
+              Envie o que <strong>${escapeHtml(char.name)}</strong> fez em cada dia. O Mestre poderá dar o feedback na hora (se não precisar de rolagem) ou pedir um teste de dado antes de narrar o que aconteceu.
             </p>
           </div>
 
@@ -1397,7 +1512,7 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
             <button onclick="app.submitWeeklyDowntimeToGM()"
               class="px-4 py-2 rounded-lg font-display font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all ${dt.submittedToGM ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-brass-400 hover:bg-brass-300 text-obsidian-950'}">
               <i class="fa-solid ${dt.submittedToGM ? 'fa-check-double' : 'fa-paper-plane'}"></i>
-              <span>${dt.submittedToGM ? 'Atualizar Envio ao Mestre' : 'Enviar Semana para o Mestre'}</span>
+              <span>${dt.submittedToGM ? 'Atualizar Todos os Dias' : 'Enviar Todos os Dias ao Mestre'}</span>
             </button>
           </div>
         </div>
@@ -1413,31 +1528,59 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
         </div>
       </div>
 
+      <!-- 2. DIAS DA SEMANA (FLUXO: ENVIAR DIA -> DADO OPCIONAL COM TRAVA DE REJOGAR -> FEEDBACK DO MESTRE) -->
       <div class="space-y-3">
         ${WEEK_DAYS_DEF.map(d => {
           const dayObj = dt.days?.[d.key] || {
             isMissionDay: false,
+            daySubmitted: false,
             playerActivity: '',
             gmRequestedTest: '',
             gmTestDC: 12,
             playerRollResult: null,
+            allowReroll: false,
             gmFeedback: '',
             outcomes: [],
             deltas: { potion: 0, hp: 0, san: 0, sp: 0, gold: 0, itemGained: '', clueGained: '' }
           };
           const outcomes = Array.isArray(dayObj.outcomes) ? dayObj.outcomes : [];
           const deltas = dayObj.deltas || {};
-          const hasGMResponse = dayObj.gmFeedback || outcomes.length > 0 || deltas.potion || deltas.hp || deltas.san || deltas.sp || deltas.gold || deltas.itemGained || deltas.clueGained;
+          const hasGMResponse = Boolean(
+            dayObj.gmFeedback ||
+            outcomes.length > 0 ||
+            deltas.potion || deltas.hp || deltas.san || deltas.sp || deltas.gold ||
+            deltas.itemGained || deltas.clueGained
+          );
+          const isSent = Boolean(dayObj.daySubmitted || dt.submittedToGM);
+          const canRollNow = !dayObj.playerRollResult || dayObj.allowReroll || isGMUser;
+
+          let stepBadgeHtml = '';
+          if (dayObj.isMissionDay) {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-crimson-950 text-crimson-300 border border-crimson-500/40">Dia de Sessão</span>`;
+          } else if (hasGMResponse) {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-crown mr-1"></i>Feedback do Mestre Recebido</span>`;
+          } else if (dayObj.gmRequestedTest && !dayObj.playerRollResult) {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50 animate-pulse"><i class="fa-solid fa-dice-d20 mr-1"></i>Mestre Pediu Rolagem!</span>`;
+          } else if (dayObj.playerRollResult) {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-astral-950 text-astral-300 border border-astral-500/40"><i class="fa-solid fa-check mr-1"></i>Dado Rolado • Aguardando Feedback</span>`;
+          } else if (isSent) {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-paper-plane mr-1"></i>Dia Enviado ao Mestre</span>`;
+          } else {
+            stepBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] bg-obsidian-900 text-slate-400 border border-slate-800">Rascunho</span>`;
+          }
 
           return `
             <div class="victorian-card rounded-xl p-4 border transition-all space-y-3 ${dayObj.isMissionDay ? 'border-l-4 border-l-crimson-500 bg-crimson-950/10' : (dayObj.gmRequestedTest && !dayObj.playerRollResult ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-brass-500/60')}">
               <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="w-7 h-7 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-xs">
                     <i class="fa-solid ${d.icon}"></i>
                   </span>
                   <div>
-                    <h4 class="font-display font-bold text-sm text-brass-200">${d.label}</h4>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <h4 class="font-display font-bold text-sm text-brass-200">${d.label}</h4>
+                      ${stepBadgeHtml}
+                    </div>
                     <span class="text-[10px] text-slate-400">
                       ${dayObj.isMissionDay ? 'Dia em Missão Oficial (Sessão)' : 'Dia Livre / Entre-Missões'}
                     </span>
@@ -1461,23 +1604,30 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
                     class="sheet-input w-64 px-2.5 py-1 rounded text-xs" />
                 </div>
               ` : `
-                <div>
-                  <label class="block text-[11px] uppercase tracking-wider text-slate-400 mb-1">
+                <div class="space-y-2">
+                  <label class="block text-[11px] uppercase tracking-wider text-slate-400">
                     O que seu personagem fez neste dia? (Atuação, estudos, investigações, rituais, descanso)
                   </label>
                   <textarea rows="2"
                     oninput="app.updateDowntimeDayField('${char.id}', '${d.key}', 'playerActivity', this.value, false)"
-                    placeholder="Descreva suas ações de ${d.label} para o Mestre analisar..."
+                    placeholder="Descreva suas ações de ${d.label} e clique em Enviar Dia ao Mestre..."
                     class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed">${escapeHtml(dayObj.playerActivity || '')}</textarea>
+                  <div class="flex justify-end">
+                    <button onclick="app.submitSingleDowntimeDay('${char.id}', '${d.key}')"
+                      class="px-3.5 py-1.5 rounded-lg font-display font-bold text-xs flex items-center gap-1.5 transition-all ${isSent ? 'bg-obsidian-900 hover:bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-brass-400 hover:bg-brass-300 text-obsidian-950 shadow'}">
+                      <i class="fa-solid ${isSent ? 'fa-check' : 'fa-paper-plane'}"></i>
+                      <span>${isSent ? `Dia Enviado (Atualizar ${d.short})` : `Enviar ${d.label} ao Mestre`}</span>
+                    </button>
+                  </div>
                 </div>
 
                 ${dayObj.gmRequestedTest ? `
                   <div class="bg-amber-950/40 border border-amber-400/50 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2.5">
-                      <i class="fa-solid fa-dice-d20 text-amber-400 text-lg animate-bounce"></i>
+                      <i class="fa-solid fa-dice-d20 text-amber-400 text-lg ${!dayObj.playerRollResult ? 'animate-bounce' : ''}"></i>
                       <div>
                         <div class="text-xs font-display font-bold text-amber-200 uppercase">
-                          O Mestre solicitou um teste para esta atividade!
+                          ${dayObj.playerRollResult ? 'Teste da Semana Realizado' : 'O Mestre solicitou um dado para este dia!'}
                         </div>
                         <div class="text-xs text-slate-300">
                           Teste exigido: <strong class="text-brass-200">${escapeHtml(getTestLabelByKey(dayObj.gmRequestedTest))}</strong> • Dificuldade (DT): <strong>${dayObj.gmTestDC ?? 12}</strong>
@@ -1485,25 +1635,33 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
                       </div>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                       ${dayObj.playerRollResult ? `
                         <div class="px-3 py-1.5 rounded-lg border font-display font-bold text-xs ${dayObj.playerRollResult.total >= (dayObj.gmTestDC || 12) ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200' : 'bg-crimson-950/90 border-crimson-500 text-crimson-200'}">
                           Resultado: ${dayObj.playerRollResult.total} (${escapeHtml(dayObj.playerRollResult.details || '')})
                         </div>
                       ` : ''}
-                      <button onclick="app.rollDowntimeRequestedTest('${char.id}', '${d.key}')"
-                        class="px-3.5 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs flex items-center gap-1.5 shadow-md transition-all">
-                        <i class="fa-solid fa-dice-d20"></i> ${dayObj.playerRollResult ? 'Rolar Novamente' : 'Rolar Teste Agora'}
-                      </button>
+
+                      ${canRollNow ? `
+                        <button onclick="app.rollDowntimeRequestedTest('${char.id}', '${d.key}')"
+                          class="px-3.5 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs flex items-center gap-1.5 shadow-md transition-all">
+                          <i class="fa-solid fa-dice-d20"></i>
+                          <span>${dayObj.playerRollResult ? 'Rejogar Dado (Liberado pelo Mestre)' : 'Rolar Dado Agora'}</span>
+                        </button>
+                      ` : `
+                        <span class="px-3 py-1.5 rounded-lg bg-obsidian-950 border border-slate-800 text-slate-400 font-display font-bold text-[11px] flex items-center gap-1.5" title="O dado já foi rolado. Apenas o Mestre pode liberar uma nova rolagem.">
+                          <i class="fa-solid fa-lock text-amber-400"></i> Dado Rolado (Rejogar apenas c/ permissão do Mestre)
+                        </span>
+                      `}
                     </div>
                   </div>
                 ` : ''}
 
                 ${hasGMResponse ? `
-                  <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 space-y-2">
+                  <div class="bg-obsidian-950/90 border border-brass-400/40 rounded-xl p-3.5 space-y-2 shadow-md">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                       <span class="text-[10px] font-display font-bold uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
-                        <i class="fa-solid fa-crown text-brass-400"></i> Avaliação & Desdobramentos do Mestre:
+                        <i class="fa-solid fa-crown text-brass-400"></i> Feedback do Mestre — O que aconteceu na ${d.label}:
                       </span>
                       <div class="flex flex-wrap gap-1">
                         ${outcomes.map(oKey => {
@@ -1518,7 +1676,7 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
                         ${deltas.gold ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-200 border border-amber-400/40">Libras ${formatSigned(deltas.gold)} £</span>` : ''}
                       </div>
                     </div>
-                    ${dayObj.gmFeedback ? `<p class="text-xs text-slate-200 leading-relaxed">${escapeHtml(dayObj.gmFeedback)}</p>` : ''}
+                    ${dayObj.gmFeedback ? `<p class="text-xs text-slate-100 leading-relaxed bg-obsidian-900/80 p-2.5 rounded-lg border border-slate-800">${escapeHtml(dayObj.gmFeedback)}</p>` : ''}
                     ${deltas.clueGained ? `<div class="text-xs text-amber-300"><i class="fa-solid fa-magnifying-glass mr-1"></i><strong>Pista Descoberta:</strong> ${escapeHtml(deltas.clueGained)}</div>` : ''}
                     ${deltas.itemGained ? `<div class="text-xs text-emerald-300"><i class="fa-solid fa-box-open mr-1"></i><strong>Item Obtido:</strong> ${escapeHtml(deltas.itemGained)}</div>` : ''}
                   </div>
@@ -1529,6 +1687,124 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false) {
         }).join('')}
       </div>
 
+      <!-- 3. CORREIO & CARTAS DA SEMANA ENTRE JOGADORES (COM APROVAÇÃO DO MESTRE) -->
+      <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-4">
+        <div class="border-b border-brass-400/25 pb-3">
+          <span class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Mensageiros do Mundo Espiritual & Correio a Vapor</span>
+          <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+            <i class="fa-solid fa-envelope-open-text text-brass-400"></i> Cartas entre Jogadores durante a Semana
+          </h3>
+          <p class="text-xs text-slate-400">
+            Escreva pequenos blocos de texto (cartas, bilhetes ou mensagens via mensageiro espiritual) para outro personagem da campanha. O Mestre avaliará e aprovará a entrega!
+          </p>
+        </div>
+
+        <!-- Formulário para Enviar Nova Carta -->
+        <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-4 space-y-3">
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-feather-pointed text-amber-400"></i> Escrever Nova Carta de ${escapeHtml(char.name)}
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div class="sm:col-span-3">
+              <label class="block text-[10px] uppercase text-slate-400 mb-1">Dia do Envio</label>
+              <select id="letterDaySelect" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs font-bold text-brass-200">
+                ${WEEK_DAYS_DEF.map(d => `<option value="${d.key}">${d.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="sm:col-span-4">
+              <label class="block text-[10px] uppercase text-emerald-300 font-bold mb-1">Destinatário na Campanha *</label>
+              <select id="letterRecipientSelect" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-200">
+                ${otherPartyChars.length === 0
+                  ? `<option value="">Nenhum outro personagem na campanha</option>`
+                  : otherPartyChars.map(oc => `<option value="${oc.id}">${escapeHtml(oc.name)} (${escapeHtml(oc.player || 'Jogador')})</option>`).join('')
+                }
+              </select>
+            </div>
+            <div class="sm:col-span-5">
+              <label class="block text-[10px] uppercase text-slate-400 mb-1">Assunto / Selo da Carta (Opcional)</label>
+              <input id="letterSubjectInput" type="text" placeholder="Ex: Bilhete Selado / Reunião Urgente..."
+                class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-amber-200" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase text-slate-400 mb-1">Mensagem da Carta (Bloco de Texto) *</label>
+            <textarea id="letterBodyInput" rows="3" maxlength="800"
+              placeholder="Escreva aqui o conteúdo da carta que será submetida à aprovação do Mestre antes de chegar ao destinatário..."
+              class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed"></textarea>
+          </div>
+
+          <div class="flex justify-end">
+            <button onclick="app.sendWeeklyLetter()"
+              class="px-4 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg transition-all">
+              <i class="fa-solid fa-paper-plane"></i> Enviar Carta (Solicitar Aprovação do Mestre)
+            </button>
+          </div>
+        </div>
+
+        <!-- Caixa de Entrada e Cartas Enviadas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Cartas Recebidas (Aprovadas pelo Mestre) -->
+          <div class="bg-obsidian-950/90 border border-emerald-500/35 rounded-xl p-4 space-y-2.5">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300 flex items-center justify-between">
+              <span><i class="fa-solid fa-inbox mr-1.5"></i>Cartas Recebidas por ${escapeHtml(char.name)}</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px]">${receivedApprovedLetters.length}</span>
+            </h4>
+            ${receivedApprovedLetters.length === 0 ? `
+              <p class="text-xs text-slate-500 italic py-3 text-center">Nenhuma carta aprovada pelo Mestre chegou até você ainda.</p>
+            ` : `
+              <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                ${receivedApprovedLetters.map(l => `
+                  <div class="bg-obsidian-900/95 border border-brass-400/35 rounded-lg p-3 space-y-1.5 shadow">
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1">
+                      <span class="font-bold text-brass-300"><i class="fa-solid fa-user-pen mr-1"></i>De: ${escapeHtml(l.fromCharName)}</span>
+                      <span>${escapeHtml(l.dayLabel || '')} • Sem. ${l.weekNumber || 1}</span>
+                    </div>
+                    ${l.subject ? `<div class="text-xs font-display font-bold text-amber-200">${escapeHtml(l.subject)}</div>` : ''}
+                    <blockquote class="text-xs text-slate-200 italic border-l-2 border-emerald-500/50 pl-2.5 py-0.5 whitespace-pre-line leading-relaxed">
+                      "${escapeHtml(l.content || '')}"
+                    </blockquote>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- Cartas Enviadas por este Personagem (Status de Aprovação) -->
+          <div class="bg-obsidian-950/90 border border-slate-800 rounded-xl p-4 space-y-2.5">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-300 flex items-center justify-between">
+              <span><i class="fa-solid fa-paper-plane mr-1.5"></i>Cartas Enviadas por Você</span>
+              <span class="px-2 py-0.5 rounded-full bg-obsidian-800 text-slate-300 text-[10px]">${sentByMeLetters.length}</span>
+            </h4>
+            ${sentByMeLetters.length === 0 ? `
+              <p class="text-xs text-slate-500 italic py-3 text-center">Você ainda não enviou nenhuma carta nesta campanha.</p>
+            ` : `
+              <div class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                ${sentByMeLetters.map(l => {
+                  const badge = l.status === 'approved'
+                    ? '<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold uppercase"><i class="fa-solid fa-check mr-0.5"></i>Entregue</span>'
+                    : l.status === 'rejected'
+                    ? '<span class="px-1.5 py-0.5 rounded bg-crimson-950 text-crimson-300 border border-crimson-500/40 text-[9px] font-bold uppercase"><i class="fa-solid fa-ban mr-0.5"></i>Interceptada</span>'
+                    : '<span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40 text-[9px] font-bold uppercase"><i class="fa-solid fa-hourglass-half mr-0.5"></i>Aguardando Mestre</span>';
+                  return `
+                    <div class="bg-obsidian-900/90 border border-slate-800 rounded-lg p-3 space-y-1">
+                      <div class="flex items-center justify-between gap-2 text-[10px]">
+                        <span class="text-slate-300">Para: <strong class="text-emerald-300">${escapeHtml(l.toCharName)}</strong> (${escapeHtml(l.dayLabel || '')})</span>
+                        ${badge}
+                      </div>
+                      ${l.subject ? `<div class="text-xs font-bold text-amber-200">${escapeHtml(l.subject)}</div>` : ''}
+                      <p class="text-xs text-slate-300 italic line-clamp-3">"${escapeHtml(l.content || '')}"</p>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. HISTÓRICO DE RESUMOS DE SEMANAS ANTERIORES -->
       <div class="victorian-card rounded-xl p-4 sm:p-5 space-y-3">
         <h3 class="font-display font-bold text-sm sm:text-base text-brass-200 uppercase tracking-wider flex items-center gap-2">
           <i class="fa-solid fa-scroll text-brass-400"></i> Resumos de Semanas Anteriores (Entregues pelo Mestre)
