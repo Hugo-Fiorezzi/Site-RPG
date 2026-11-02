@@ -763,13 +763,22 @@ class BeyonderGrimoireController {
   }
 
   updateDowntimeDayField(charId, dayKey, field, value, shouldReRender = false) {
+    if ((field === 'gmRequestedTest' || field === 'gmTestDC' || field === 'gmFeedback') && !this.isGMUser()) {
+      showToast('Apenas o Mestre pode solicitar testes ou editar o feedback do Mestre.', 'error');
+      return;
+    }
     const char = this.charactersMap[charId] || this.getActiveChar();
     if (!char) return;
     const dt = this.ensureCharDowntime(char);
     if (!dt.days[dayKey]) {
       dt.days[dayKey] = createDefaultWeeklyDowntime(dt.weekNumber || 1).days[dayKey];
     }
+    if (field === 'gmRequestedTest' && dt.days[dayKey].gmRequestedTest !== value) {
+      dt.days[dayKey].playerRollResult = null;
+      dt.days[dayKey].allowReroll = false;
+    }
     dt.days[dayKey][field] = value;
+    char.updatedAt = Date.now();
 
     if (shouldReRender) {
       this.renderAll();
@@ -956,11 +965,14 @@ class BeyonderGrimoireController {
     if (!char) return;
     const dt = this.ensureCharDowntime(char);
     const dayObj = dt.days?.[dayKey];
-    if (!dayObj || !dayObj.gmRequestedTest) return;
+    if (!dayObj || !dayObj.gmRequestedTest) {
+      showToast('O Mestre ainda não solicitou uma rolagem de dado para este dia.', 'error');
+      return;
+    }
 
-    // Bloqueia rejogar o dado do teste da semana a menos que o Mestre tenha permitido!
-    if (dayObj.playerRollResult && !dayObj.allowReroll && !this.isGMUser()) {
-      showToast('Você já rolou o dado deste dia! Apenas o Mestre pode liberar uma nova tentativa.', 'error');
+    // Bloqueia rejogar o dado do teste da semana a menos que o Mestre tenha clicado em "Permitir Rejogar"!
+    if (dayObj.playerRollResult && !dayObj.allowReroll) {
+      showToast('O dado deste dia já foi rolado! Só é possível rejogar se o Mestre clicar em "Permitir Rejogar".', 'error');
       return;
     }
 
@@ -1985,7 +1997,38 @@ class BeyonderGrimoireController {
     renderDiceLogs(this.diceLogs, this.campaignState, this.activeCharacterId, this.viewMode, this.currentUser);
   }
 
-  executeD20({ title, subtitle, modifier }) {
+  canPlayerRollFreeDice(matchingTestKey = null) {
+    if (this.isGMUser()) return { allowed: true };
+    if (this.combatState && this.combatState.isActive) return { allowed: true };
+    const camp = this.getActiveCampaign();
+    if (camp && camp.allowFreePlayerRolls === true) return { allowed: true };
+
+    // Verifica se o jogador possui algum teste solicitado pelo Mestre pendente (ou com rejogar liberado) na semana
+    const char = this.getActiveChar();
+    if (char && char.weeklyDowntime?.days) {
+      for (const d of WEEK_DAYS_DEF) {
+        const dayObj = char.weeklyDowntime.days[d.key];
+        if (dayObj && !dayObj.isMissionDay && dayObj.gmRequestedTest) {
+          const canRollThisDay = !dayObj.playerRollResult || Boolean(dayObj.allowReroll);
+          if (canRollThisDay && (!matchingTestKey || dayObj.gmRequestedTest === matchingTestKey)) {
+            return { allowed: true, redirectDayKey: d.key, charId: char.id };
+          }
+        }
+      }
+    }
+    return { allowed: false };
+  }
+
+  executeD20({ title, subtitle, modifier, testKey = null }) {
+    const perm = this.canPlayerRollFreeDice(testKey);
+    if (!perm.allowed) {
+      showToast('Rolagem bloqueada durante a semana! Você só pode rolar dados quando o Mestre pedir um teste ou liberar a rolagem.', 'error');
+      return;
+    }
+    if (perm.redirectDayKey && perm.charId) {
+      this.rollDowntimeRequestedTest(perm.charId, perm.redirectDayKey);
+      return;
+    }
     const char = this.getActiveChar();
     const forceBonusDie = !!document.getElementById('useBonusDieNow')?.checked;
     const result = buildD20RollResult({
@@ -2010,11 +2053,16 @@ class BeyonderGrimoireController {
     this.executeD20({
       title: `Teste de ${def ? def.name : attrKey.toUpperCase()}`,
       subtitle: 'Atributo Principal',
-      modifier: calcAttrMod(data.value, data.bonus)
+      modifier: calcAttrMod(data.value, data.bonus),
+      testKey: attrKey
     });
   }
 
   rollInitiative() {
+    if (!this.canPlayerRollFreeDice().allowed) {
+      showToast('Rolagem bloqueada durante a semana! Aguarde o Mestre iniciar o combate ou liberar rolagens.', 'error');
+      return;
+    }
     const char = this.getActiveChar();
     if (!char) return;
     const data = char.attributes?.agi || { value: 10, bonus: 0 };
@@ -2052,7 +2100,8 @@ class BeyonderGrimoireController {
     this.executeD20({
       title: `Resistência: ${def.name}`,
       subtitle: svData.proficient ? 'Proficiente' : 'Teste de Resistência',
-      modifier: totalMod
+      modifier: totalMod,
+      testKey: `save_${saveKey}`
     });
   }
 
@@ -2070,11 +2119,16 @@ class BeyonderGrimoireController {
     this.executeD20({
       title: `Perícia: ${def.name}`,
       subtitle: `${chosenAttr.toUpperCase()} • ${trainLabel}`,
-      modifier: totalMod
+      modifier: totalMod,
+      testKey: skillId
     });
   }
 
   rollWeaponAttack(idx, consumeAction = false) {
+    if (!this.canPlayerRollFreeDice().allowed) {
+      showToast('Rolagem de ataque bloqueada durante a semana! Aguarde o Mestre iniciar o combate ou liberar rolagens.', 'error');
+      return;
+    }
     const char = this.getActiveChar();
     const w = char?.weapons?.[idx];
     if (!w) return;
@@ -2117,6 +2171,10 @@ class BeyonderGrimoireController {
   }
 
   rollWeaponDamage(idx) {
+    if (!this.canPlayerRollFreeDice().allowed) {
+      showToast('Rolagem de dano bloqueada durante a semana! Aguarde o Mestre iniciar o combate ou liberar rolagens.', 'error');
+      return;
+    }
     const char = this.getActiveChar();
     const w = char?.weapons?.[idx];
     if (!w) return;
@@ -2139,6 +2197,15 @@ class BeyonderGrimoireController {
   }
 
   rollCustomDie(sides) {
+    const perm = this.canPlayerRollFreeDice();
+    if (!perm.allowed) {
+      showToast('Rolagem bloqueada durante a semana! Você só pode rolar dados quando o Mestre pedir um teste ou liberar a rolagem.', 'error');
+      return;
+    }
+    if (perm.redirectDayKey && perm.charId && sides === 20) {
+      this.rollDowntimeRequestedTest(perm.charId, perm.redirectDayKey);
+      return;
+    }
     const char = this.getActiveChar();
     const charName = char ? char.name : (this.currentUser?.name || 'Mestre');
     const count = clamp(Number(document.getElementById('customDiceCount')?.value) || 1, 1, 20);

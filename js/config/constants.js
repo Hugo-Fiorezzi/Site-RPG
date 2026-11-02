@@ -312,6 +312,7 @@ export const DEFAULT_CAMPAIGN_STATE = {
       currentWeek: 1,
       characterIds: ['sample_klein_moretti', 'sample_audrey_hall', 'sample_alger_wilson'],
       restrictCombatAndDice: true,
+      allowFreePlayerRolls: false,
       weekHistory: [],
       storeItems: JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS)),
       contributionTasks: JSON.parse(JSON.stringify(DEFAULT_CONTRIBUTION_TASKS)),

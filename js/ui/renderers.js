@@ -884,6 +884,19 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
                 onchange="app.updateActiveCampaignField('restrictCombatAndDice', this.checked)"
                 class="accent-amber-400 w-4 h-4 rounded shrink-0" />
             </label>
+            <label class="flex items-center justify-between gap-2 bg-obsidian-950/80 border border-amber-500/40 rounded-xl p-3 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-amber-200 flex items-center gap-1.5">
+                  <i class="fa-solid fa-dice-d20 text-amber-400"></i> Liberar Rolagens Livres Fora de Combate
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  Quando desmarcado, durante a semana os jogadores <strong>só podem rolar dados quando o Mestre pedir um teste no dia ou permitir rejogar</strong> (ou quando o Combate estiver ativo).
+                </p>
+              </div>
+              <input type="checkbox" ${activeCamp.allowFreePlayerRolls === true ? 'checked' : ''}
+                onchange="app.updateActiveCampaignField('allowFreePlayerRolls', this.checked)"
+                class="accent-amber-400 w-4 h-4 rounded shrink-0" />
+            </label>
           </div>
 
           <div class="lg:col-span-7 bg-obsidian-950/75 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -1552,7 +1565,7 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false, cha
             deltas.itemGained || deltas.clueGained
           );
           const isSent = Boolean(dayObj.daySubmitted || dt.submittedToGM);
-          const canRollNow = !dayObj.playerRollResult || dayObj.allowReroll || isGMUser;
+          const canRollNow = (!dayObj.playerRollResult || Boolean(dayObj.allowReroll));
 
           let stepBadgeHtml = '';
           if (dayObj.isMissionDay) {
