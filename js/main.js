@@ -706,7 +706,7 @@ class BeyonderGrimoireController {
     if (checklist) {
       checklist.innerHTML = allChars.map(ch => `
         <label class="flex items-center gap-2.5 p-2 rounded-lg bg-obsidian-950 border border-slate-800 cursor-pointer hover:border-brass-400/40">
-          <input type="checkbox" value="${ch.id}" checked class="modal-camp-char-checkbox accent-amber-400 rounded" />
+          <input type="checkbox" value="${ch.id}" class="modal-camp-char-checkbox accent-amber-400 rounded" />
           <div class="min-w-0">
             <div class="text-xs font-bold text-brass-200 truncate">${escapeHtml(ch.name)}</div>
             <div class="text-[10px] text-slate-400 truncate">${escapeHtml(ch.player || 'Jogador')} • ${escapeHtml(ch.pathway)}</div>
@@ -2373,16 +2373,13 @@ class BeyonderGrimoireController {
       weeklyDowntime: createDefaultWeeklyDowntime(activeCamp?.currentWeek || 1)
     });
 
+    newChar.shareBackstory = false;
+    newChar.publicBackstory = '';
+    newChar.publicInfo = '';
+    newChar.publicQuote = '';
+
     this.charactersMap[newChar.id] = newChar;
     this.activeCharacterId = newChar.id;
-
-    if (activeCamp) {
-      if (!Array.isArray(activeCamp.characterIds)) activeCamp.characterIds = [];
-      if (!activeCamp.characterIds.includes(newChar.id)) {
-        activeCamp.characterIds.push(newChar.id);
-      }
-      await this.storage.saveCampaignStoreTransaction(this.campaignState);
-    }
 
     this.viewMode = 'sheet';
     this.closeNewCharacterModal();
@@ -2390,8 +2387,8 @@ class BeyonderGrimoireController {
     await this.storage.saveCharacter(newChar, this.charactersMap);
     showToast(
       this.isGMUser()
-        ? `Ficha de ${name} criada e adicionada à campanha!`
-        : `Ficha de ${name} criada! O Mestre já pode vê-la e adicioná-la à campanha.`
+        ? `Ficha de ${name} criada! Escale-a manualmente na campanha quando desejar.`
+        : `Ficha de ${name} criada! O Mestre poderá escalá-la na campanha no Painel do Mestre.`
     );
   }
 
@@ -3271,7 +3268,11 @@ class BeyonderGrimoireController {
     if (catSpan) catSpan.textContent = `${target.pathway || 'Beyonder'} • Seq. ${target.sequence}`;
     if (titleH3) titleH3.textContent = target.name || 'Personagem';
     if (imgEl) imgEl.src = target.avatarUrl;
-    if (descP) descP.textContent = target.publicBackstory || target.backgroundStory || '';
+    if (descP) {
+      descP.textContent = target.shareBackstory === true
+        ? (target.publicBackstory || '')
+        : 'Backstory mantida em segredo pelo jogador.';
+    }
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -3432,6 +3433,29 @@ class BeyonderGrimoireController {
     showToast('Background da ficha importado para sua Backstory pública da campanha!', 'crit');
   }
 
+  async toggleShareMyBackstory() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    const qEl = document.getElementById('myPublicQuoteInput');
+    const bEl = document.getElementById('myPublicBackstoryInput');
+    const iEl = document.getElementById('myPublicInfoInput');
+    if (qEl) char.publicQuote = qEl.value.trim();
+    if (bEl) char.publicBackstory = bEl.value.trim();
+    if (iEl) char.publicInfo = iEl.value.trim();
+
+    char.shareBackstory = !(char.shareBackstory === true);
+    char.updatedAt = Date.now();
+
+    renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast(
+      char.shareBackstory
+        ? `Permissão concedida! A Backstory de ${char.name} agora está visível para os outros jogadores.`
+        : `Permissão revogada! A Backstory de ${char.name} foi ocultada dos outros jogadores.`,
+      char.shareBackstory ? 'crit' : 'info'
+    );
+  }
+
   async saveMyPublicBackstory() {
     const char = this.getActiveChar();
     if (!char) return;
@@ -3445,7 +3469,12 @@ class BeyonderGrimoireController {
 
     renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
     await this.storage.saveCharacter(char, this.charactersMap);
-    showToast(`Backstory e informações públicas de ${char.name} compartilhadas com os jogadores!`, 'crit');
+    showToast(
+      char.shareBackstory === true
+        ? `Textos salvos e visíveis no mural da campanha!`
+        : `Textos salvos em modo privado! (Clique em "Autorizar & Compartilhar" quando quiser liberar para o grupo).`,
+      'crit'
+    );
   }
 }
 

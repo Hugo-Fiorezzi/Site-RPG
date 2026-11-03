@@ -1536,7 +1536,7 @@ export function renderDowntimeTab(char, campaignState, forceRebuild = false, cha
   // Personagens destinatários para envio de cartas na campanha
   const campCharIds = new Set(activeCamp?.characterIds || []);
   const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const otherPartyChars = allChars.filter(c => c.id !== char.id && (campCharIds.size === 0 || campCharIds.has(c.id)));
+  const otherPartyChars = allChars.filter(c => c.id !== char.id && campCharIds.has(c.id));
 
   const allLetters = Array.isArray(activeCamp?.weeklyLetters) ? activeCamp.weeklyLetters : [];
   // Cartas recebidas por este personagem (APENAS as aprovadas pelo Mestre!)
@@ -3439,7 +3439,7 @@ export function renderEquippedItemsTab(char, charactersMap, campaignState, curre
   const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
   const campCharIds = new Set(activeCamp?.characterIds || []);
   const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+  const partyChars = allChars.filter(c => campCharIds.has(c.id));
 
   container.innerHTML = `
     <div class="space-y-5">
@@ -3610,7 +3610,7 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
   const activeCamp = (campaignState?.campaigns || []).find(c => c.id === campaignState?.activeCampaignId) || (campaignState?.campaigns || [])[0];
   const campCharIds = new Set(activeCamp?.characterIds || []);
   const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const tableChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+  const tableChars = allChars.filter(c => campCharIds.has(c.id));
 
   // Conta todos os poderes/habilidades e magias ativos na mesa
   const charsWithActivePassives = tableChars.filter(c => Array.isArray(c.activePassives) && c.activePassives.length > 0);
@@ -3935,7 +3935,7 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
 
   const campCharIds = new Set(activeCamp.characterIds || []);
   const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+  const partyChars = allChars.filter(c => campCharIds.has(c.id));
 
   const visibleDossiers = activeCamp.dossiers.filter(d => isGMUser || d.visibleToPlayers !== false);
   const filteredDossiers = visibleDossiers.filter(d => {
@@ -4573,28 +4573,55 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
       ${subTab === 'backstories' ? `
         <div class="space-y-5">
           ${char ? `
-            <!-- Editor da Backstory & Informações Públicas do Personagem Ativo -->
-            <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3.5 border border-eldritch-400/45">
+            <!-- Editor da Backstory & Controle de Permissão de Compartilhamento do Personagem Ativo -->
+            <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3.5 border ${char.shareBackstory === true ? 'border-emerald-500/50' : 'border-amber-500/45'}">
               <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-3">
                 <div>
-                  <span class="text-[10px] font-display uppercase tracking-widest text-eldritch-300 block">Apresentação Pública na Campanha</span>
+                  <span class="text-[10px] font-display uppercase tracking-widest text-eldritch-300 block">Apresentação & Permissão de Compartilhamento</span>
                   <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
-                    <i class="fa-solid fa-user-pen text-eldritch-400"></i> Minha Backstory & Informações para o Grupo (${escapeHtml(char.name)})
+                    <i class="fa-solid fa-user-shield text-eldritch-400"></i> Minha Backstory & Informações (${escapeHtml(char.name)})
                   </h3>
                   <p class="text-xs text-slate-400">
-                    Escreva aqui a história pregressa (backstory), aparência, traços marcantes e outras informações do seu personagem que os outros jogadores da mesa podem visualizar.
+                    Sua Backstory <strong>não é compartilhada automaticamente</strong>. Os outros jogadores só poderão visualizá-la se você ativar a permissão de compartilhamento abaixo.
                   </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button onclick="app.syncPublicBackstoryFromSheet()" title="Copiar o texto da caixa de Background da aba Notas da sua ficha"
+                  <button onclick="app.syncPublicBackstoryFromSheet()" title="Copiar o texto da caixa de Background da aba Notas da sua ficha para o rascunho abaixo"
                     class="px-3 py-1.5 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 text-brass-200 border border-brass-400/35 text-xs font-semibold flex items-center gap-1.5 transition-all">
                     <i class="fa-solid fa-copy text-brass-400"></i> Importar Background da Ficha
                   </button>
                   <button onclick="app.saveMyPublicBackstory()"
-                    class="px-4 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase flex items-center gap-1.5 shadow transition-all">
-                    <i class="fa-solid fa-check"></i> Salvar & Atualizar no Mural
+                    class="px-4 py-1.5 rounded-lg bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/45 font-display font-extrabold text-xs uppercase flex items-center gap-1.5 shadow transition-all">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar Textos
                   </button>
                 </div>
+              </div>
+
+              <!-- Barra de Permissão do Jogador: Compartilhar vs Manter Oculto -->
+              <div class="p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${char.shareBackstory === true ? 'bg-emerald-950/50 border-emerald-500/50' : 'bg-obsidian-950/90 border-amber-500/40'}">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0 ${char.shareBackstory === true ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40' : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'}">
+                    <i class="fa-solid ${char.shareBackstory === true ? 'fa-lock-open' : 'fa-lock'}"></i>
+                  </div>
+                  <div>
+                    <div class="font-display font-bold text-xs sm:text-sm ${char.shareBackstory === true ? 'text-emerald-200' : 'text-amber-200'}">
+                      ${char.shareBackstory === true
+                        ? 'Compartilhamento Autorizado por Você (Visível para os Jogadores)'
+                        : 'Backstory Privada / Bloqueada (Oculta dos Outros Jogadores)'}
+                    </div>
+                    <p class="text-[11px] text-slate-400">
+                      ${char.shareBackstory === true
+                        ? 'Os demais jogadores da campanha podem ler o texto que você escreveu abaixo. Clique ao lado se quiser ocultar novamente.'
+                        : 'Nenhum outro jogador consegue ver sua backstory ou informações no momento. Clique ao lado somente quando quiser autorizar a leitura.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button onclick="app.toggleShareMyBackstory()"
+                  class="px-4 py-2 rounded-lg font-display font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all shrink-0 ${char.shareBackstory === true ? 'bg-crimson-950 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/50' : 'bg-emerald-500 hover:bg-emerald-400 text-obsidian-950'}">
+                  <i class="fa-solid ${char.shareBackstory === true ? 'fa-eye-slash' : 'fa-share-nodes'}"></i>
+                  <span>${char.shareBackstory === true ? 'Ocultar / Revogar Permissão' : 'Autorizar & Compartilhar Backstory'}</span>
+                </button>
               </div>
 
               <div>
@@ -4609,12 +4636,12 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <div>
                   <label class="block text-[10px] uppercase text-amber-300 font-bold mb-1">
-                    <i class="fa-solid fa-scroll mr-1"></i> Backstory do Personagem (Visível aos Outros Jogadores)
+                    <i class="fa-solid fa-scroll mr-1"></i> Backstory do Personagem (Só aparece se você autorizar acima)
                   </label>
                   <textarea id="myPublicBackstoryInput" rows="5"
                     oninput="app.updatePublicProfileField('publicBackstory', this.value)"
-                    placeholder="Conte a história conhecida do seu personagem, sua origem, profissão pública e trajetória até aqui..."
-                    class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed">${escapeHtml(char.publicBackstory ?? char.backgroundStory ?? '')}</textarea>
+                    placeholder="Conte a história que deseja compartilhar quando autorizar a visualização..."
+                    class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed">${escapeHtml(char.publicBackstory || '')}</textarea>
                 </div>
                 <div>
                   <label class="block text-[10px] uppercase text-eldritch-300 font-bold mb-1">
@@ -4622,92 +4649,119 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
                   </label>
                   <textarea id="myPublicInfoInput" rows="5"
                     oninput="app.updatePublicProfileField('publicInfo', this.value)"
-                    placeholder="Descreva a aparência física, vestimentas vitorianas, hábitos, trejeitos, animais de estimação ou detalhes que o grupo percebe ao conviver com você..."
+                    placeholder="Descreva a aparência física, vestimentas vitorianas, hábitos ou detalhes que deseja compartilhar com o grupo..."
                     class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed">${escapeHtml(char.publicInfo || '')}</textarea>
                 </div>
               </div>
             </div>
           ` : ''}
 
-          <!-- Galeria de Backstories & Informações de Todos os Personagens da Campanha -->
+          <!-- Galeria de Backstories & Informações de Todos os Personagens Escalados na Campanha -->
           <div class="space-y-3.5">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
                 <i class="fa-solid fa-masks-theater text-brass-400"></i> Backstories & Informações dos Personagens da Campanha (${partyChars.length})
               </h3>
-              <span class="text-xs text-slate-400">Visível para todos os jogadores da mesa</span>
+              <span class="text-xs text-slate-400">Exibe apenas as backstories autorizadas pelos próprios jogadores</span>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              ${partyChars.map(pc => {
-                const isMine = char && pc.id === char.id;
-                const pubBackstory = (pc.publicBackstory && pc.publicBackstory.trim())
-                  ? pc.publicBackstory
-                  : (pc.backgroundStory || 'Nenhuma backstory compartilhada ainda por este jogador.');
-                const pubInfo = (pc.publicInfo && pc.publicInfo.trim())
-                  ? pc.publicInfo
-                  : 'Nenhuma informação adicional ou descrição de aparência cadastrada ainda.';
-                const pubQuote = pc.publicQuote || pc.actingSummary || '';
+            ${partyChars.length === 0 ? `
+              <div class="victorian-card rounded-xl p-8 text-center text-xs text-slate-400">
+                Nenhum personagem foi escalado nesta campanha pelo Mestre ainda.
+              </div>
+            ` : `
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                ${partyChars.map(pc => {
+                  const isMine = char && pc.id === char.id;
+                  const isShared = pc.shareBackstory === true;
+                  const pubBackstory = (pc.publicBackstory && pc.publicBackstory.trim())
+                    ? pc.publicBackstory
+                    : 'Nenhuma backstory escrita ainda.';
+                  const pubInfo = (pc.publicInfo && pc.publicInfo.trim())
+                    ? pc.publicInfo
+                    : 'Nenhuma informação adicional cadastrada.';
+                  const pubQuote = pc.publicQuote || '';
 
-                return `
-                  <div class="victorian-card rounded-xl p-5 border ${isMine ? 'border-brass-400/60' : 'border-slate-800'} flex flex-col justify-between space-y-4">
-                    <div class="space-y-3">
-                      <div class="flex items-start gap-3.5 border-b border-slate-800 pb-3.5">
-                        ${pc.avatarUrl ? `
-                          <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}"
-                            onclick="app.openCharacterAvatarPreview('${pc.id}')"
-                            class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl object-cover border-2 border-brass-400/60 shrink-0 shadow-lg cursor-zoom-in" />
+                  return `
+                    <div class="victorian-card rounded-xl p-5 border ${isMine ? 'border-brass-400/60' : 'border-slate-800'} flex flex-col justify-between space-y-4">
+                      <div class="space-y-3">
+                        <div class="flex items-start gap-3.5 border-b border-slate-800 pb-3.5">
+                          ${pc.avatarUrl ? `
+                            <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}"
+                              onclick="app.openCharacterAvatarPreview('${pc.id}')"
+                              class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl object-cover border-2 border-brass-400/60 shrink-0 shadow-lg cursor-zoom-in" />
+                          ` : `
+                            <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl bg-obsidian-950 border border-brass-400/35 flex flex-col items-center justify-center text-brass-300/70 shrink-0">
+                              <i class="fa-solid fa-user-secret text-2xl"></i>
+                              <span class="text-[9px] uppercase font-display mt-1">Sem Foto</span>
+                            </div>
+                          `}
+                          <div class="min-w-0 flex-1 space-y-1">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class="px-2 py-0.5 rounded bg-eldritch-950 text-eldritch-300 border border-eldritch-500/40 text-[10px] font-display font-bold uppercase">
+                                ${escapeHtml(pc.pathway || 'Beyonder')} • ${pc.sequence === 'Humana' ? 'Humano' : `Seq. ${pc.sequence}`}
+                              </span>
+                              ${pc.organization ? `
+                                <span class="px-2 py-0.5 rounded bg-obsidian-950 text-brass-300 border border-brass-400/30 text-[10px] font-semibold">
+                                  ${escapeHtml(pc.organization)}
+                                </span>
+                              ` : ''}
+                              ${isShared ? `
+                                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold uppercase">
+                                  <i class="fa-solid fa-lock-open mr-1"></i>Compartilhada
+                                </span>
+                              ` : `
+                                <span class="px-2 py-0.5 rounded bg-obsidian-950 text-slate-400 border border-slate-700 text-[9px] font-bold uppercase">
+                                  <i class="fa-solid fa-lock mr-1 text-amber-400"></i>Privada
+                                </span>
+                              `}
+                            </div>
+                            <h4 class="font-display font-bold text-lg text-brass-200 leading-tight">${escapeHtml(pc.name)}</h4>
+                            <div class="text-xs text-slate-400">
+                              <i class="fa-solid fa-user text-[10px] mr-1"></i> Jogador(a): <strong class="text-slate-200">${escapeHtml(pc.player || 'Jogador')}</strong>
+                              ${pc.potionName ? ` • Título/Poção: <span class="text-amber-200">${escapeHtml(pc.potionName)}</span>` : ''}
+                            </div>
+                            ${(isShared && pubQuote) ? `
+                              <blockquote class="text-xs italic text-amber-200/90 border-l-2 border-brass-400/50 pl-2.5 pt-0.5">
+                                "${escapeHtml(pubQuote)}"
+                              </blockquote>
+                            ` : ''}
+                          </div>
+                        </div>
+
+                        ${isShared ? `
+                          <div class="space-y-3">
+                            <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
+                              <div class="text-[10px] font-display font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-scroll text-amber-400"></i> Backstory & Origem do Personagem
+                              </div>
+                              <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubBackstory)}</p>
+                            </div>
+
+                            <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
+                              <div class="text-[10px] font-display font-bold uppercase tracking-wider text-eldritch-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-id-card text-eldritch-400"></i> Aparência, Personalidade & Outras Informações
+                              </div>
+                              <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubInfo)}</p>
+                            </div>
+                          </div>
                         ` : `
-                          <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl bg-obsidian-950 border border-brass-400/35 flex flex-col items-center justify-center text-brass-300/70 shrink-0">
-                            <i class="fa-solid fa-user-secret text-2xl"></i>
-                            <span class="text-[9px] uppercase font-display mt-1">Sem Foto</span>
+                          <div class="bg-obsidian-950/80 border border-slate-800/90 rounded-xl p-5 text-center space-y-1.5">
+                            <i class="fa-solid fa-lock text-amber-400/80 text-lg"></i>
+                            <div class="font-display font-bold text-xs uppercase tracking-wider text-slate-300">
+                              Backstory Mantida em Segredo pelo Jogador
+                            </div>
+                            <p class="text-[11px] text-slate-400 max-w-md mx-auto">
+                              O jogador responsável por <strong>${escapeHtml(pc.name)}</strong> ainda não autorizou o compartilhamento da sua backstory e informações pessoais com o grupo.
+                            </p>
                           </div>
                         `}
-                        <div class="min-w-0 flex-1 space-y-1">
-                          <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="px-2 py-0.5 rounded bg-eldritch-950 text-eldritch-300 border border-eldritch-500/40 text-[10px] font-display font-bold uppercase">
-                              ${escapeHtml(pc.pathway || 'Beyonder')} • ${pc.sequence === 'Humana' ? 'Humano' : `Seq. ${pc.sequence}`}
-                            </span>
-                            ${pc.organization ? `
-                              <span class="px-2 py-0.5 rounded bg-obsidian-950 text-brass-300 border border-brass-400/30 text-[10px] font-semibold">
-                                ${escapeHtml(pc.organization)}
-                              </span>
-                            ` : ''}
-                            ${isMine ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold uppercase">Seu Personagem</span>` : ''}
-                          </div>
-                          <h4 class="font-display font-bold text-lg text-brass-200 leading-tight">${escapeHtml(pc.name)}</h4>
-                          <div class="text-xs text-slate-400">
-                            <i class="fa-solid fa-user text-[10px] mr-1"></i> Jogador(a): <strong class="text-slate-200">${escapeHtml(pc.player || 'Jogador')}</strong>
-                            ${pc.potionName ? ` • Título/Poção: <span class="text-amber-200">${escapeHtml(pc.potionName)}</span>` : ''}
-                          </div>
-                          ${pubQuote ? `
-                            <blockquote class="text-xs italic text-amber-200/90 border-l-2 border-brass-400/50 pl-2.5 pt-0.5">
-                              "${escapeHtml(pubQuote)}"
-                            </blockquote>
-                          ` : ''}
-                        </div>
-                      </div>
-
-                      <div class="space-y-3">
-                        <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
-                          <div class="text-[10px] font-display font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-scroll text-amber-400"></i> Backstory & Origem do Personagem
-                          </div>
-                          <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubBackstory)}</p>
-                        </div>
-
-                        <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
-                          <div class="text-[10px] font-display font-bold uppercase tracking-wider text-eldritch-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-id-card text-eldritch-400"></i> Aparência, Personalidade & Outras Informações
-                          </div>
-                          <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubInfo)}</p>
-                        </div>
                       </div>
                     </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
           </div>
         </div>
       ` : ''}
