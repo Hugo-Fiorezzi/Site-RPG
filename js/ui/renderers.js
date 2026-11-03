@@ -857,7 +857,7 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
 
   const testSelectOptionsHtml = (selectedKey) => `
     <option value="">Sem teste solicitado</option>
-    <optgroup label="Perícias (21)">
+    <optgroup label="Perícias (19)">
       ${SKILLS_DEF.map(s => `<option value="${s.id}" ${selectedKey === s.id ? 'selected' : ''}>Perícia: ${s.name} (${s.defaultAttr.toUpperCase()})</option>`).join('')}
     </optgroup>
     <optgroup label="Atributos Principais">
@@ -3977,7 +3977,7 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
 
   const subTabsDef = [
     { key: 'resumo', label: 'Resumo da Campanha', icon: 'fa-compass', count: null },
-    { key: 'dossies', label: 'Dossiês (Locais, NPCs & Itens)', icon: 'fa-folder-open', count: visibleDossiers.length },
+    { key: 'dossies', label: 'Dossiês (Locais, NPCs, Itens, Criaturas & Caminhos)', icon: 'fa-folder-open', count: visibleDossiers.length },
     { key: 'progresso', label: 'Progresso & Semanas', icon: 'fa-calendar-check', count: combinedUpdates.length },
     { key: 'anotacoes', label: 'Anotações Compartilhadas', icon: 'fa-note-sticky', count: activeCamp.sharedNotes.length },
     { key: 'backstories', label: 'Backstories & Personagens', icon: 'fa-masks-theater', count: partyChars.length }
@@ -4215,7 +4215,7 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
                 <div>
                   <span class="text-[10px] font-display uppercase tracking-widest text-amber-400 block">Arquivo Confidencial do Mestre</span>
                   <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
-                    <i class="fa-solid fa-folder-plus text-amber-400"></i> ${editingDossier ? `Editando Dossiê: ${escapeHtml(editingDossier.title)}` : 'Criar Novo Dossiê Ilustrado (Local, Personagem ou Item)'}
+                    <i class="fa-solid fa-folder-plus text-amber-400"></i> ${editingDossier ? `Editando Dossiê: ${escapeHtml(editingDossier.title)}` : 'Criar Novo Dossiê Ilustrado (Local, Personagem, Item, Criatura ou Caminho Beyonder)'}
                   </h3>
                 </div>
                 ${editingDossier ? `
@@ -4232,10 +4232,12 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
                     <option value="locais" ${(editingDossier?.category || 'locais') === 'locais' ? 'selected' : ''}>Local / Região</option>
                     <option value="personagens" ${editingDossier?.category === 'personagens' ? 'selected' : ''}>Personagem / NPC</option>
                     <option value="itens" ${editingDossier?.category === 'itens' ? 'selected' : ''}>Item / Artefato</option>
+                    <option value="criaturas" ${editingDossier?.category === 'criaturas' ? 'selected' : ''}>Criatura / Monstro</option>
+                    <option value="caminhos" ${editingDossier?.category === 'caminhos' ? 'selected' : ''}>Caminho Beyonder</option>
                   </select>
                 </div>
                 <div class="sm:col-span-5">
-                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Nome do Local, Personagem ou Item *</label>
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Título do Dossiê (Local, NPC, Item, Criatura ou Caminho) *</label>
                   <input id="newDossierTitleInput" type="text" value="${escapeHtml(editingDossier?.title || '')}"
                     placeholder="Ex: Catedral de Santa Selena / Capitão Dunn Smith / Artefato 2-049"
                     class="sheet-input w-full px-3 py-2 rounded-lg text-xs font-bold text-slate-100" />
@@ -4305,7 +4307,7 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
                 <i class="fa-solid fa-magnifying-glass text-slate-500 absolute left-3 top-2.5 text-xs"></i>
                 <input id="dossierSearchInput" type="text" value="${escapeHtml(hubState.dossierSearch || '')}"
                   oninput="app.setCampaignDossierSearch(this.value)"
-                  placeholder="Buscar local, NPC ou item..."
+                  placeholder="Buscar local, NPC, item, criatura ou caminho..."
                   class="sheet-input pl-8 pr-3 py-1.5 rounded-lg text-xs w-full" />
               </div>
             </div>

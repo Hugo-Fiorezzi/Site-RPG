@@ -9,8 +9,8 @@ export const ATTRIBUTES_DEF = [
 
 export const SAVING_THROWS_DEF = [
   { key: 'for', name: 'Força', defaultAttr: 'for' },
-  { key: 'agi', name: 'Agilidade', defaultAttr: 'agi' },
-  { key: 'con', name: 'Constituição', defaultAttr: 'con' },
+  { key: 'agi', id: 'reflexos', name: 'Reflexos', defaultAttr: 'agi' },
+  { key: 'con', id: 'fortitude', name: 'Fortitude', defaultAttr: 'con' },
   { key: 'int', name: 'Inteligência', defaultAttr: 'int' },
   { key: 'sab', name: 'Sabedoria', defaultAttr: 'sab' },
   { key: 'car', name: 'Carisma', icon: 'fa-crown', defaultAttr: 'car' },
@@ -306,7 +306,9 @@ export const DOSSIER_CATEGORIES = [
   { key: 'all', label: 'Todos os Dossiês', icon: 'fa-folder-open', badgeClass: 'bg-brass-500/20 text-brass-200 border-brass-400/40' },
   { key: 'locais', label: 'Locais & Regiões', short: 'Local', icon: 'fa-map-location-dot', badgeClass: 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' },
   { key: 'personagens', label: 'Personagens & NPCs', short: 'Personagem', icon: 'fa-user-tie', badgeClass: 'bg-astral-950/90 text-astral-300 border-astral-500/40' },
-  { key: 'itens', label: 'Itens & Artefatos', short: 'Item / Artefato', icon: 'fa-gem', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' }
+  { key: 'itens', label: 'Itens & Artefatos', short: 'Item / Artefato', icon: 'fa-gem', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' },
+  { key: 'criaturas', label: 'Criaturas', short: 'Criatura', icon: 'fa-dragon', badgeClass: 'bg-crimson-950/90 text-crimson-300 border-crimson-500/40' },
+  { key: 'caminhos', label: 'Caminhos Beyonder', short: 'Caminho Beyonder', icon: 'fa-compass-drafting', badgeClass: 'bg-eldritch-950/90 text-eldritch-300 border-eldritch-500/40' }
 ];
 
 export const SHARED_NOTE_CATEGORIES = [
@@ -377,6 +379,26 @@ export const DEFAULT_CAMPAIGN_DOSSIERS = [
     description: 'Emblema metálico dourado contaminado pela característica de um Beyonder do caminho do Sol. Capaz de purificar espectros e criar Água Benta do Sol, mas drena lentamente o calor corporal de quem o porta.',
     visibleToPlayers: true,
     createdAt: Date.now() - 30000000
+  },
+  {
+    id: 'dos_criatura_1',
+    category: 'criaturas',
+    title: 'Beyonder Fora de Controle (Rampager Escamoso)',
+    subtitle: 'Aberração Mística • Risco de Corrupção Mental',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="gc1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#180609"/><stop offset="100%" stop-color="#090c14"/></linearGradient></defs><rect width="600" height="340" fill="url(#gc1)"/><circle cx="300" cy="155" r="72" fill="#2c0b12" stroke="#f43f5e" stroke-width="3"/><circle cx="272" cy="140" r="10" fill="#fb7185"/><circle cx="328" cy="140" r="10" fill="#fb7185"/><path d="M265 185 Q300 215 335 185" fill="none" stroke="#f43f5e" stroke-width="3"/><text x="30" y="315" fill="#fda4af" font-family="serif" font-size="18" font-weight="bold">Criatura Beyonder • Perda de Controle</text></svg>`),
+    description: 'Antigo Beyonder que sucumbiu aos sussurros e perdeu o controle da poção, sofrendo mutação grotesca. Exala forte aura de loucura e deixa para trás sua Característica Beyonder ao ser abatido.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 25000000
+  },
+  {
+    id: 'dos_caminho_1',
+    category: 'caminhos',
+    title: 'Caminho do Vidente (O Tolo)',
+    subtitle: 'Sequência 9: Vidente → Seq. 8: Palhaço → Seq. 7: Mágico',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="gp1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#130b24"/><stop offset="100%" stop-color="#090c18"/></linearGradient></defs><rect width="600" height="340" fill="url(#gp1)"/><circle cx="300" cy="155" r="74" fill="none" stroke="#a855f7" stroke-width="2.5"/><polygon points="300,88 358,200 242,200" fill="#a855f7" opacity="0.22" stroke="#d4af37" stroke-width="2"/><circle cx="300" cy="160" r="16" fill="#d4af37"/><text x="30" y="315" fill="#e9d5ff" font-family="serif" font-size="18" font-weight="bold">Caminho do Vidente • Mistérios, Destino &amp; Ilusão</text></svg>`),
+    description: 'Caminho voltado às artes adivinhatórias, astrologia, leitura de auras pela Visão Espiritual e rituais místicos. Na Sequência 8 (Palhaço), concede agilidade acrobática, controle facial absoluto e intuição de perigo.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 20000000
   }
 ];
 
@@ -489,8 +511,6 @@ export const SKILLS_DEF = [
   { id: 'atletismo', name: 'Atletismo', defaultAttr: 'for' },
   { id: 'luta', name: 'Luta', defaultAttr: 'for' },
   { id: 'pontaria', name: 'Pontaria', defaultAttr: 'agi' },
-  { id: 'reflexos', name: 'Reflexos', defaultAttr: 'agi' },
-  { id: 'fortitude', name: 'Fortitude', defaultAttr: 'con' },
   { id: 'truque_maos', name: 'Truque de mãos', defaultAttr: 'agi' },
   { id: 'ocultismo', name: 'Ocultismo', defaultAttr: 'int' },
   { id: 'enganacao', name: 'Enganação', defaultAttr: 'car' },
