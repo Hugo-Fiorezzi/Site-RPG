@@ -83,7 +83,6 @@ export function createDefaultCharacter(overrides = {}) {
       armas_fogo_curtas: true,
       armaduras_leves: true,
       amuletos_talismas: true,
-      artefatos_selados: true,
       instrumentos_adivinhacao: true
     },
     proficienciesList: overrides.proficienciesList || [

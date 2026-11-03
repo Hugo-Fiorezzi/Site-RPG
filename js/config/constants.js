@@ -423,8 +423,9 @@ export const COMBAT_STYLE_TYPES = [
 export const PROFICIENCY_CATEGORIES = [
   'Arma',
   'Armadura / Proteção',
-  'Item Místico / Artefato',
-  'Ferramenta / Kit'
+  'Explosivos & Bombas',
+  'Ferramentas de Roubo / Kit',
+  'Item / Ferramenta'
 ];
 
 export const PROFICIENCY_LEVELS = [
@@ -434,16 +435,17 @@ export const PROFICIENCY_LEVELS = [
 ];
 
 export const STANDARD_PROFICIENCIES_DEF = [
-  { key: 'armas_simples', label: 'Armas Simples & Bengalas', group: 'Armas', icon: 'fa-wand-Pre' },
+  { key: 'armas_simples', label: 'Armas Simples & Bengalas', group: 'Armas', icon: 'fa-wand-sparkles' },
   { key: 'armas_marciais', label: 'Lâminas & Armas Marciais', group: 'Armas', icon: 'fa-khanda' },
   { key: 'armas_fogo_curtas', label: 'Revólveres & Pistolas', group: 'Armas', icon: 'fa-gun' },
   { key: 'armas_fogo_longas', label: 'Rifles & Escopetas', group: 'Armas', icon: 'fa-crosshairs' },
+  { key: 'explosivos', label: 'Explosivos & Bombas', group: 'Armas & Explosivos', icon: 'fa-bomb' },
   { key: 'armaduras_leves', label: 'Trajes & Armaduras Leves', group: 'Armaduras', icon: 'fa-shirt' },
   { key: 'armaduras_medias', label: 'Armaduras Médias', group: 'Armaduras', icon: 'fa-vest' },
   { key: 'armaduras_pesadas', label: 'Armaduras Pesadas', group: 'Armaduras', icon: 'fa-shield-halved' },
   { key: 'escudos', label: 'Escudos & Broquéis', group: 'Armaduras', icon: 'fa-shield' },
+  { key: 'ferramentas_roubo', label: 'Ferramentas de Roubo', group: 'Itens & Ferramentas', icon: 'fa-key' },
   { key: 'amuletos_talismas', label: 'Amuletos & Talismãs', group: 'Itens & Ferramentas', icon: 'fa-star-and-crescent' },
-  { key: 'artefatos_selados', label: 'Artefatos Selados', group: 'Itens & Ferramentas', icon: 'fa-gem' },
   { key: 'instrumentos_adivinhacao', label: 'Pêndulos & Adivinhação', group: 'Itens & Ferramentas', icon: 'fa-compass' },
   { key: 'kits_alquimia_medicina', label: 'Kits de Ocultismo & Boticário', group: 'Itens & Ferramentas', icon: 'fa-flask-vial' }
 ];

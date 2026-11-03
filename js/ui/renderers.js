@@ -3806,7 +3806,7 @@ export function renderCombatStylesAndProficiencies(char, forceRebuild = false) {
               <label class="block text-[9px] uppercase text-slate-400">Item, Arma ou Armadura</label>
               <input id="prfName_${idx}" type="text" value="${escapeHtml(pr.name || '')}"
                 oninput="app.updateCollectionItem('proficienciesList', ${idx}, 'name', this.value)"
-                placeholder="Ex: Revólveres, Bengala-Espada, Artefatos..."
+                placeholder="Ex: Revólveres, Explosivos, Ferramentas de Roubo..."
                 class="sheet-input w-full px-2.5 py-1 rounded text-xs font-bold text-brass-200" />
             </div>
             <div class="sm:col-span-3">
