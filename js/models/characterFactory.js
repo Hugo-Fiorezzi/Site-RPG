@@ -68,6 +68,40 @@ export function createDefaultCharacter(overrides = {}) {
     },
     savingThrows: overrides.savingThrows || defaultSaves,
     skills: overrides.skills || defaultSkills,
+    combatStyles: overrides.combatStyles || [
+      {
+        id: 'cs1',
+        name: 'Tiro Tático & Mobilidade de Palhaço',
+        styleType: 'Armas de Fogo & Pontaria',
+        bonusText: '+1 em Pontaria e Esquiva Acrobática',
+        isActive: true,
+        description: 'Combina disparos precisos de revólver à média distância com deslocamento imprevisível e uso de Substitutos de Papel.'
+      }
+    ],
+    standardProficiencies: overrides.standardProficiencies || {
+      armas_simples: true,
+      armas_fogo_curtas: true,
+      armaduras_leves: true,
+      amuletos_talismas: true,
+      artefatos_selados: true,
+      instrumentos_adivinhacao: true
+    },
+    proficienciesList: overrides.proficienciesList || [
+      {
+        id: 'prf1',
+        name: 'Revólveres de Caça-Demônios & Munições Místicas',
+        category: 'Arma',
+        level: 'Especialista (+Bônus)',
+        notes: 'Treinamento formal no estande subterrâneo dos Falcões Noturnos.'
+      },
+      {
+        id: 'prf2',
+        name: 'Bengala com Lâmina Oculta & Combate Urbano',
+        category: 'Arma',
+        level: 'Proficiente',
+        notes: 'Saque rápido e defesa em curta distância.'
+      }
+    ],
     weapons: overrides.weapons || [
       {
         id: 'w1',

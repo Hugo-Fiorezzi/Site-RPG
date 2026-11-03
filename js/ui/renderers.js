@@ -3,6 +3,10 @@ import {
   SAVING_THROWS_DEF,
   SKILLS_DEF,
   BEYONDER_PATHWAYS,
+  COMBAT_STYLE_TYPES,
+  PROFICIENCY_CATEGORIES,
+  PROFICIENCY_LEVELS,
+  STANDARD_PROFICIENCIES_DEF,
   EQUIPMENT_CATEGORIES,
   MUTATION_TYPES,
   MUTATION_SEVERITIES,
@@ -1409,6 +1413,7 @@ export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alph
   renderPlayerActionEconomyAndFilter(char, actionFilterMode);
   renderWeaponsList(char);
   renderEquipmentList(char);
+  renderCombatStylesAndProficiencies(char);
   renderMysticList(char, 'powers');
   renderMysticList(char, 'spells');
   renderMutationsList(char);
@@ -3677,4 +3682,160 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
       `}
     </div>
   `;
+}
+
+
+export function renderCombatStylesAndProficiencies(char, forceRebuild = false) {
+  if (!char) return;
+
+  // 1. Estilos de Combate
+  const stylesContainer = document.getElementById('combatStylesListContainer');
+  if (stylesContainer) {
+    const styles = char.combatStyles || [];
+    const existingCards = stylesContainer.querySelectorAll('[data-combat-style-card]');
+    if (!forceRebuild && (isUserTypingInContainer(stylesContainer) || (styles.length > 0 && existingCards.length === styles.length))) {
+      styles.forEach((st, idx) => {
+        setInputValueIfNotFocused(`csName_${idx}`, st.name || '');
+        setInputValueIfNotFocused(`csType_${idx}`, st.styleType || COMBAT_STYLE_TYPES[0]);
+        setInputValueIfNotFocused(`csBonus_${idx}`, st.bonusText || '');
+        setInputValueIfNotFocused(`csDesc_${idx}`, st.description || '');
+      });
+    } else if (styles.length === 0) {
+      stylesContainer.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-3">Nenhum estilo de combate registrado. Clique em "Adicionar Estilo" acima.</p>`;
+    } else {
+      stylesContainer.innerHTML = styles.map((st, idx) => {
+        const isActive = st.isActive !== false;
+        return `
+          <div data-combat-style-card="${idx}" class="bg-obsidian-950/85 border ${isActive ? 'border-brass-400/50 shadow-md' : 'border-slate-800'} rounded-xl p-3.5 space-y-2.5 transition-all">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+              <div class="sm:col-span-5">
+                <label class="block text-[10px] uppercase text-brass-300 mb-0.5">Nome do Estilo / Técnica</label>
+                <input id="csName_${idx}" type="text" value="${escapeHtml(st.name || '')}"
+                  oninput="app.updateCollectionItem('combatStyles', ${idx}, 'name', this.value)"
+                  placeholder="Ex: Tiro Tático Vitoriano / Esgrima de Bengala"
+                  class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold text-brass-200" />
+              </div>
+              <div class="sm:col-span-4">
+                <label class="block text-[10px] uppercase text-slate-400 mb-0.5">Foco Tático</label>
+                <select id="csType_${idx}" onchange="app.updateCollectionItem('combatStyles', ${idx}, 'styleType', this.value)"
+                  class="sheet-input w-full px-2 py-1.5 rounded text-xs text-amber-200 font-semibold">
+                  ${COMBAT_STYLE_TYPES.map(t => `<option value="${t}" ${st.styleType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-[10px] uppercase text-emerald-300 mb-0.5">Bônus / Efeito Passivo</label>
+                <input id="csBonus_${idx}" type="text" value="${escapeHtml(st.bonusText || '')}"
+                  oninput="app.updateCollectionItem('combatStyles', ${idx}, 'bonusText', this.value)"
+                  placeholder="Ex: +2 Pontaria / +1 CA"
+                  class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold text-emerald-300" />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-900/75 px-3 py-1.5 rounded-lg border border-slate-800">
+              <div class="flex items-center gap-1.5">
+                <button onclick="app.moveCollectionItem('combatStyles', ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}
+                  class="px-2 py-0.5 rounded bg-obsidian-950 hover:bg-brass-500/20 text-slate-400 hover:text-brass-200 border border-slate-700 text-xs disabled:opacity-30">
+                  <i class="fa-solid fa-arrow-up"></i>
+                </button>
+                <button onclick="app.moveCollectionItem('combatStyles', ${idx}, 1)" ${idx === styles.length - 1 ? 'disabled' : ''}
+                  class="px-2 py-0.5 rounded bg-obsidian-950 hover:bg-brass-500/20 text-slate-400 hover:text-brass-200 border border-slate-700 text-xs disabled:opacity-30">
+                  <i class="fa-solid fa-arrow-down"></i>
+                </button>
+                <button onclick="app.toggleCombatStyleActive(${idx})"
+                  class="px-2.5 py-0.5 rounded text-[11px] font-display font-bold border transition-all flex items-center gap-1.5 ${isActive ? 'bg-emerald-500 text-obsidian-950 border-emerald-300 shadow' : 'bg-obsidian-950 text-slate-400 border-slate-700 hover:text-slate-200'}">
+                  <i class="fa-solid ${isActive ? 'fa-check-circle' : 'fa-circle'}"></i>
+                  <span>${isActive ? 'Postura Ativa' : 'Inativo'}</span>
+                </button>
+              </div>
+              <button onclick="app.removeCollectionItem('combatStyles', ${idx})"
+                class="p-1.5 rounded bg-obsidian-950 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+
+            <textarea id="csDesc_${idx}" rows="2"
+              oninput="app.updateCollectionItem('combatStyles', ${idx}, 'description', this.value)"
+              placeholder="Descreva as manobras, vantagens táticas e condições deste estilo de combate..."
+              class="sheet-input w-full p-2 rounded text-xs text-slate-300 leading-relaxed">${escapeHtml(st.description || '')}</textarea>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // 2. Categorias Gerais de Proficiência (Chips interativos)
+  const stdProfContainer = document.getElementById('standardProficienciesContainer');
+  if (stdProfContainer) {
+    const stdMap = char.standardProficiencies || {};
+    stdProfContainer.innerHTML = STANDARD_PROFICIENCIES_DEF.map(p => {
+      const trained = !!stdMap[p.key];
+      return `
+        <button onclick="app.toggleStandardProficiency('${p.key}')"
+          class="p-2 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${trained ? 'bg-emerald-950/75 border-emerald-500/50 text-emerald-200 shadow' : 'bg-obsidian-950/70 border-slate-800 text-slate-400 hover:border-slate-700'}">
+          <div class="min-w-0">
+            <div class="text-[9px] uppercase font-display tracking-wider ${trained ? 'text-emerald-400' : 'text-slate-500'}">${escapeHtml(p.group)}</div>
+            <div class="text-xs font-bold truncate">${escapeHtml(p.label)}</div>
+          </div>
+          <span class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${trained ? 'bg-emerald-400 border-emerald-300 text-obsidian-950' : 'border-slate-700'}">
+            ${trained ? '<i class="fa-solid fa-check text-[9px]"></i>' : ''}
+          </span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  // 3. Lista de Proficiências Específicas (Armas, Armaduras, Itens e Kits)
+  const profListContainer = document.getElementById('proficienciesListContainer');
+  if (profListContainer) {
+    const profs = char.proficienciesList || [];
+    const existingRows = profListContainer.querySelectorAll('[data-prof-item-row]');
+    if (!forceRebuild && (isUserTypingInContainer(profListContainer) || (profs.length > 0 && existingRows.length === profs.length))) {
+      profs.forEach((pr, idx) => {
+        setInputValueIfNotFocused(`prfName_${idx}`, pr.name || '');
+        setInputValueIfNotFocused(`prfCat_${idx}`, pr.category || PROFICIENCY_CATEGORIES[0]);
+        setInputValueIfNotFocused(`prfLvl_${idx}`, pr.level || PROFICIENCY_LEVELS[0]);
+        setInputValueIfNotFocused(`prfNotes_${idx}`, pr.notes || '');
+      });
+    } else if (profs.length === 0) {
+      profListContainer.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-2">Nenhuma especialização específica cadastrada.</p>`;
+    } else {
+      profListContainer.innerHTML = profs.map((pr, idx) => `
+        <div data-prof-item-row="${idx}" class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+            <div class="sm:col-span-5">
+              <label class="block text-[9px] uppercase text-slate-400">Item, Arma ou Armadura</label>
+              <input id="prfName_${idx}" type="text" value="${escapeHtml(pr.name || '')}"
+                oninput="app.updateCollectionItem('proficienciesList', ${idx}, 'name', this.value)"
+                placeholder="Ex: Revólveres, Bengala-Espada, Artefatos..."
+                class="sheet-input w-full px-2.5 py-1 rounded text-xs font-bold text-brass-200" />
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[9px] uppercase text-slate-400">Categoria</label>
+              <select id="prfCat_${idx}" onchange="app.updateCollectionItem('proficienciesList', ${idx}, 'category', this.value)"
+                class="sheet-input w-full px-2 py-1 rounded text-xs text-amber-200">
+                ${PROFICIENCY_CATEGORIES.map(c => `<option value="${c}" ${pr.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+              </select>
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[9px] uppercase text-emerald-300">Grau de Domínio</label>
+              <select id="prfLvl_${idx}" onchange="app.updateCollectionItem('proficienciesList', ${idx}, 'level', this.value)"
+                class="sheet-input w-full px-2 py-1 rounded text-xs font-bold text-emerald-300">
+                ${PROFICIENCY_LEVELS.map(l => `<option value="${l}" ${pr.level === l ? 'selected' : ''}>${l}</option>`).join('')}
+              </select>
+            </div>
+            <div class="sm:col-span-1 flex justify-end pt-3">
+              <button onclick="app.removeCollectionItem('proficienciesList', ${idx})"
+                class="p-1.5 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <input id="prfNotes_${idx}" type="text" value="${escapeHtml(pr.notes || '')}"
+            oninput="app.updateCollectionItem('proficienciesList', ${idx}, 'notes', this.value)"
+            placeholder="Observações, bônus concedidos ou origem do treinamento..."
+            class="sheet-input w-full px-2.5 py-1 rounded text-[11px] text-slate-300" />
+        </div>
+      `).join('');
+    }
+  }
 }

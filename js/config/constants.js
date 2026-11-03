@@ -411,6 +411,43 @@ export const BEYONDER_PATHWAYS = [
   'Criminoso (Abismo)'
 ];
 
+export const COMBAT_STYLE_TYPES = [
+  'Armas de Fogo & Pontaria',
+  'Corpo a Corpo & Lâminas',
+  'Esquiva & Acrobacia',
+  'Defensivo & Proteção',
+  'Combate Místico / Beyonder',
+  'Empunhadura Dupla (Duas Mãos/Armas)'
+];
+
+export const PROFICIENCY_CATEGORIES = [
+  'Arma',
+  'Armadura / Proteção',
+  'Item Místico / Artefato',
+  'Ferramenta / Kit'
+];
+
+export const PROFICIENCY_LEVELS = [
+  'Proficiente',
+  'Especialista (+Bônus)',
+  'Maestria Completa'
+];
+
+export const STANDARD_PROFICIENCIES_DEF = [
+  { key: 'armas_simples', label: 'Armas Simples & Bengalas', group: 'Armas', icon: 'fa-wand-Pre' },
+  { key: 'armas_marciais', label: 'Lâminas & Armas Marciais', group: 'Armas', icon: 'fa-khanda' },
+  { key: 'armas_fogo_curtas', label: 'Revólveres & Pistolas', group: 'Armas', icon: 'fa-gun' },
+  { key: 'armas_fogo_longas', label: 'Rifles & Escopetas', group: 'Armas', icon: 'fa-crosshairs' },
+  { key: 'armaduras_leves', label: 'Trajes & Armaduras Leves', group: 'Armaduras', icon: 'fa-shirt' },
+  { key: 'armaduras_medias', label: 'Armaduras Médias', group: 'Armaduras', icon: 'fa-vest' },
+  { key: 'armaduras_pesadas', label: 'Armaduras Pesadas', group: 'Armaduras', icon: 'fa-shield-halved' },
+  { key: 'escudos', label: 'Escudos & Broquéis', group: 'Armaduras', icon: 'fa-shield' },
+  { key: 'amuletos_talismas', label: 'Amuletos & Talismãs', group: 'Itens & Ferramentas', icon: 'fa-star-and-crescent' },
+  { key: 'artefatos_selados', label: 'Artefatos Selados', group: 'Itens & Ferramentas', icon: 'fa-gem' },
+  { key: 'instrumentos_adivinhacao', label: 'Pêndulos & Adivinhação', group: 'Itens & Ferramentas', icon: 'fa-compass' },
+  { key: 'kits_alquimia_medicina', label: 'Kits de Ocultismo & Boticário', group: 'Itens & Ferramentas', icon: 'fa-flask-vial' }
+];
+
 export const EQUIPMENT_CATEGORIES = [
   'Equipamento Geral',
   'Instrumento Místico',
@@ -527,6 +564,21 @@ export function createCollectionItemTemplate(collectionKey, character) {
       penalty: '-2 em Testes / +50% Dano',
       source: 'Efeito Negativo de Artefato',
       description: ''
+    },
+    combatStyles: {
+      id: uid,
+      name: 'Novo Estilo de Combate',
+      styleType: 'Armas de Fogo & Pontaria',
+      bonusText: '+1 em Ataque / Efeito Tático',
+      isActive: true,
+      description: ''
+    },
+    proficienciesList: {
+      id: uid,
+      name: 'Nova Proficiência Específica',
+      category: 'Arma',
+      level: 'Proficiente',
+      notes: ''
     }
   };
 

@@ -37,6 +37,7 @@ import {
   renderPlayerActionEconomyAndFilter,
   renderWeaponsList,
   renderEquipmentList,
+  renderCombatStylesAndProficiencies,
   renderMysticList,
   renderMutationsList,
   renderResistancesAndWeaknesses,
@@ -1795,6 +1796,8 @@ class BeyonderGrimoireController {
     const rendererMap = {
       weapons: () => renderWeaponsList(char, forceRebuild),
       equipment: () => renderEquipmentList(char, forceRebuild),
+      combatStyles: () => renderCombatStylesAndProficiencies(char, forceRebuild),
+      proficienciesList: () => renderCombatStylesAndProficiencies(char, forceRebuild),
       powers: () => renderMysticList(char, 'powers', forceRebuild),
       spells: () => renderMysticList(char, 'spells', forceRebuild),
       mutations: () => renderMutationsList(char, forceRebuild),
@@ -1898,6 +1901,26 @@ class BeyonderGrimoireController {
     } else {
       showToast(`"${targetItem.name}" guardado na mochila.`);
     }
+  }
+
+  toggleCombatStyleActive(index) {
+    const char = this.getActiveChar();
+    const st = char?.combatStyles?.[index];
+    if (!char || !st) return;
+    st.isActive = st.isActive === false ? true : false;
+    char.updatedAt = Date.now();
+    renderCombatStylesAndProficiencies(char, true);
+    this.scheduleAutoSave();
+  }
+
+  toggleStandardProficiency(profKey) {
+    const char = this.getActiveChar();
+    if (!char || !profKey) return;
+    if (!char.standardProficiencies) char.standardProficiencies = {};
+    char.standardProficiencies[profKey] = !char.standardProficiencies[profKey];
+    char.updatedAt = Date.now();
+    renderCombatStylesAndProficiencies(char, true);
+    this.scheduleAutoSave();
   }
 
   adjustWeaponAmmo(idx, delta) {
