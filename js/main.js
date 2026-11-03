@@ -10,6 +10,10 @@ import {
   WEEK_DAYS_DEF,
   THEME_PRESETS,
   DEFAULT_USER_THEME,
+  DOSSIER_CATEGORIES,
+  DEFAULT_CAMPAIGN_DOSSIERS,
+  DEFAULT_CAMPAIGN_UPDATES,
+  DEFAULT_SHARED_NOTES,
   createDefaultWeeklyDowntime,
   createCollectionItemTemplate
 } from './config/constants.js';
@@ -44,7 +48,9 @@ import {
   renderEquippedItemsTab,
   renderCampaignStoreTab,
   renderDiceLogs,
-  renderOraclePassivesSection
+  renderOraclePassivesSection,
+  renderPlayerCampaignHub,
+  renderDossiersGridCardsHtml
 } from './ui/renderers.js';
 
 class BeyonderGrimoireController {
@@ -67,6 +73,16 @@ class BeyonderGrimoireController {
     this.seqProgTargetCharId = null;
     this.deleteTargetCharId = null;
     this.storeUIState = { subTab: 'items', categoryFilter: 'all', searchText: '' };
+    this.campaignHubState = {
+      subTab: 'resumo',
+      dossierCat: 'all',
+      dossierSearch: '',
+      noteCat: 'all',
+      editingDossierId: null,
+      newDossierDraftImage: '',
+      editingNoteId: null
+    };
+    this.dossierUploadTargetId = 'new';
 
     this.currentUser = null;
     this.authModalTab = 'login'; // 'login' | 'register'
@@ -126,7 +142,7 @@ class BeyonderGrimoireController {
         } else {
           this.userTheme = { ...DEFAULT_USER_THEME };
         }
-        if (!user || user.role !== 'gm') {
+        if ((!user || user.role !== 'gm') && this.viewMode === 'gm') {
           this.viewMode = 'sheet';
         }
         this.ensureValidActiveCharacterForUser();
@@ -182,14 +198,29 @@ class BeyonderGrimoireController {
 
     const gmView = document.getElementById('gmDashboardView');
     const sheetView = document.getElementById('characterSheetView');
+    const campView = document.getElementById('playerCampaignView');
 
     if (this.viewMode === 'gm' && this.isGMUser()) {
-      gmView.classList.remove('hidden');
-      sheetView.classList.add('hidden');
+      gmView?.classList.remove('hidden');
+      sheetView?.classList.add('hidden');
+      campView?.classList.add('hidden');
       renderGMDashboard(this.charactersMap, this.campaignState, this.activeGMSubTab, this.currentUser);
+    } else if (this.viewMode === 'campaign') {
+      gmView?.classList.add('hidden');
+      sheetView?.classList.add('hidden');
+      campView?.classList.remove('hidden');
+      renderPlayerCampaignHub(
+        this.getActiveChar(),
+        this.charactersMap,
+        this.campaignState,
+        this.currentUser,
+        this.campaignHubState,
+        false
+      );
     } else {
-      gmView.classList.add('hidden');
-      sheetView.classList.remove('hidden');
+      gmView?.classList.add('hidden');
+      campView?.classList.add('hidden');
+      sheetView?.classList.remove('hidden');
       renderCharacterSheet(
         this.getActiveChar(),
         this.activeSheetTab,
@@ -706,9 +737,17 @@ class BeyonderGrimoireController {
       id: `camp_${Date.now()}`,
       name,
       description,
+      campaignSummary: description,
+      currentObjectives: '1. Investigar as pistas iniciais da campanha.\n2. Atuar de acordo com a poção e proteger as âncoras.',
+      currentArc: 'Arco I — Início da Jornada',
+      campaignProgressPct: 10,
       currentWeek: 1,
       characterIds,
       restrictCombatAndDice: true,
+      allowFreePlayerRolls: false,
+      dossiers: JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_DOSSIERS)),
+      weeklyUpdates: JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_UPDATES)),
+      sharedNotes: [],
       weekHistory: [],
       createdAt: Date.now()
     };
@@ -2963,6 +3002,450 @@ class BeyonderGrimoireController {
     await this.storage.saveCampaignStoreTransaction(this.campaignState);
 
     showToast(`${char.name} recebeu +${pts} Pontos de Contribuição!`, 'crit');
+  }
+
+  // --- ABA DE CAMPANHA DOS JOGADORES (RESUMO, DOSSIÊS COM IMAGENS, PROGRESSO SEMANAL, ANOTAÇÕES COMPARTILHADAS & BACKSTORIES) ---
+  switchCampaignHubSubTab(subTab) {
+    this.campaignHubState.subTab = subTab || 'resumo';
+    renderPlayerCampaignHub(
+      this.getActiveChar(),
+      this.charactersMap,
+      this.campaignState,
+      this.currentUser,
+      this.campaignHubState,
+      true
+    );
+  }
+
+  setCampaignDossierCatFilter(catKey) {
+    this.campaignHubState.dossierCat = catKey || 'all';
+    renderPlayerCampaignHub(
+      this.getActiveChar(),
+      this.charactersMap,
+      this.currentUser ? this.campaignState : this.campaignState,
+      this.currentUser,
+      this.campaignHubState,
+      true
+    );
+  }
+
+  setCampaignDossierSearch(txt) {
+    this.campaignHubState.dossierSearch = txt || '';
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    const grid = document.getElementById('campaignDossiersGridContainer');
+    if (!camp || !grid) return;
+
+    const isGM = this.isGMUser();
+    const catFilter = this.campaignHubState.dossierCat || 'all';
+    const search = (this.campaignHubState.dossierSearch || '').toLowerCase().trim();
+    const visible = (camp.dossiers || DEFAULT_CAMPAIGN_DOSSIERS).filter(d => isGM || d.visibleToPlayers !== false);
+    const filtered = visible.filter(d => {
+      const mCat = catFilter === 'all' || d.category === catFilter;
+      const mTxt = !search ||
+        (d.title || '').toLowerCase().includes(search) ||
+        (d.subtitle || '').toLowerCase().includes(search) ||
+        (d.description || '').toLowerCase().includes(search);
+      return mCat && mTxt;
+    });
+    grid.innerHTML = renderDossiersGridCardsHtml(filtered, isGM);
+  }
+
+  async gmSaveCampaignOverview() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode editar o resumo geral da campanha.', 'error');
+      return;
+    }
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    if (!camp) return;
+
+    const name = document.getElementById('campOverviewNameInput')?.value.trim();
+    const currentArc = document.getElementById('campOverviewArcInput')?.value.trim();
+    const pct = clamp(Number(document.getElementById('campOverviewPctInput')?.value ?? 25), 0, 100);
+    const description = document.getElementById('campOverviewDescInput')?.value.trim();
+    const campaignSummary = document.getElementById('campOverviewSummaryInput')?.value.trim();
+    const currentObjectives = document.getElementById('campOverviewObjectivesInput')?.value.trim();
+
+    if (name) camp.name = name;
+    if (currentArc !== undefined) camp.currentArc = currentArc || 'Arco I';
+    camp.campaignProgressPct = pct;
+    if (description !== undefined) camp.description = description;
+    if (campaignSummary !== undefined) camp.campaignSummary = campaignSummary;
+    if (currentObjectives !== undefined) camp.currentObjectives = currentObjectives;
+
+    this.renderAll();
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast('Resumo geral, objetivos e progresso da campanha atualizados!', 'crit');
+  }
+
+  triggerDossierImageUpload(targetId = 'new') {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode enviar imagens para os dossiês.', 'error');
+      return;
+    }
+    this.dossierUploadTargetId = targetId || 'new';
+    document.getElementById('dossierImageFileInput')?.click();
+  }
+
+  handleDossierImageUpload(event) {
+    const file = event?.target?.files?.[0];
+    if (!file || !this.isGMUser()) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Selecione um arquivo de imagem válido (PNG, JPG, WEBP).', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        const maxDim = 640;
+        let w = img.width;
+        let h = img.height;
+        if (w > h && w > maxDim) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else if (h >= w && h > maxDim) {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+        const camp = this.getCampaignForChar(this.getActiveChar());
+        if (this.dossierUploadTargetId && this.dossierUploadTargetId !== 'new' && camp && Array.isArray(camp.dossiers)) {
+          const d = camp.dossiers.find(item => item.id === this.dossierUploadTargetId);
+          if (d) {
+            d.imageUrl = dataUrl;
+            renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+            await this.storage.saveCampaignState(this.campaignState);
+            showToast(`Imagem do dossiê "${d.title}" atualizada!`, 'crit');
+            return;
+          }
+        }
+
+        this.campaignHubState.newDossierDraftImage = dataUrl;
+        const urlInput = document.getElementById('newDossierImageUrlInput');
+        if (urlInput) urlInput.value = dataUrl;
+        showToast('Imagem carregada no formulário do dossiê! Clique em Publicar/Salvar para confirmar.', 'crit');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  async gmCreateOrUpdateDossier() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode criar ou editar dossiês da campanha.', 'error');
+      return;
+    }
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    if (!camp) return;
+    if (!Array.isArray(camp.dossiers)) camp.dossiers = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_DOSSIERS));
+
+    const category = document.getElementById('newDossierCategorySelect')?.value || 'locais';
+    const title = document.getElementById('newDossierTitleInput')?.value.trim() || '';
+    const subtitle = document.getElementById('newDossierSubtitleInput')?.value.trim() || '';
+    const imageUrl = document.getElementById('newDossierImageUrlInput')?.value.trim() || this.campaignHubState.newDossierDraftImage || '';
+    const description = document.getElementById('newDossierDescInput')?.value.trim() || '';
+    const visibleToPlayers = !!document.getElementById('newDossierVisibleCheck')?.checked;
+
+    if (!title) {
+      showToast('Informe o nome do Local, Personagem ou Item do dossiê.', 'error');
+      return;
+    }
+    if (!description) {
+      showToast('Escreva uma descrição para o dossiê.', 'error');
+      return;
+    }
+
+    if (this.campaignHubState.editingDossierId) {
+      const existing = camp.dossiers.find(d => d.id === this.campaignHubState.editingDossierId);
+      if (existing) {
+        existing.category = category;
+        existing.title = title;
+        existing.subtitle = subtitle;
+        existing.imageUrl = imageUrl;
+        existing.description = description;
+        existing.visibleToPlayers = visibleToPlayers;
+      }
+      this.campaignHubState.editingDossierId = null;
+      this.campaignHubState.newDossierDraftImage = '';
+      showToast(`Dossiê "${title}" atualizado com sucesso!`, 'crit');
+    } else {
+      camp.dossiers.unshift({
+        id: `dos_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        category,
+        title,
+        subtitle,
+        imageUrl,
+        description,
+        visibleToPlayers,
+        createdAt: Date.now()
+      });
+      this.campaignHubState.newDossierDraftImage = '';
+      showToast(`Dossiê "${title}" publicado na campanha!`, 'crit');
+    }
+
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
+    await this.storage.saveCampaignState(this.campaignState);
+  }
+
+  gmStartEditDossier(dossierId) {
+    if (!this.isGMUser()) return;
+    this.campaignHubState.editingDossierId = dossierId;
+    this.campaignHubState.newDossierDraftImage = '';
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+  }
+
+  gmCancelEditDossier() {
+    this.campaignHubState.editingDossierId = null;
+    this.campaignHubState.newDossierDraftImage = '';
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+  }
+
+  async gmToggleDossierVisibility(dossierId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    const d = (camp?.dossiers || []).find(item => item.id === dossierId);
+    if (!d) return;
+    d.visibleToPlayers = d.visibleToPlayers === false ? true : false;
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast(d.visibleToPlayers ? `Dossiê "${d.title}" revelado aos jogadores!` : `Dossiê "${d.title}" ocultado dos jogadores.`);
+  }
+
+  async gmDeleteDossier(dossierId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    if (!camp || !Array.isArray(camp.dossiers)) return;
+    camp.dossiers = camp.dossiers.filter(d => d.id !== dossierId);
+    if (this.campaignHubState.editingDossierId === dossierId) {
+      this.campaignHubState.editingDossierId = null;
+    }
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast('Dossiê removido da campanha.');
+  }
+
+  openDossierImageModal(dossierId) {
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    const d = (camp?.dossiers || []).find(item => item.id === dossierId);
+    if (!d) return;
+
+    const catMeta = DOSSIER_CATEGORIES.find(c => c.key === d.category);
+    const catSpan = document.getElementById('dossierModalCatSpan');
+    const titleH3 = document.getElementById('dossierModalTitleH3');
+    const imgEl = document.getElementById('dossierModalFullImg');
+    const descP = document.getElementById('dossierModalDescP');
+    const modal = document.getElementById('dossierImageModal');
+
+    if (catSpan) catSpan.textContent = `${catMeta?.label || 'Dossiê'}${d.subtitle ? ` • ${d.subtitle}` : ''}`;
+    if (titleH3) titleH3.textContent = d.title || 'Dossiê';
+    if (imgEl) imgEl.src = d.imageUrl || '';
+    if (descP) descP.textContent = d.description || '';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  openCharacterAvatarPreview(charId) {
+    const target = this.charactersMap[charId];
+    if (!target || !target.avatarUrl) return;
+    const catSpan = document.getElementById('dossierModalCatSpan');
+    const titleH3 = document.getElementById('dossierModalTitleH3');
+    const imgEl = document.getElementById('dossierModalFullImg');
+    const descP = document.getElementById('dossierModalDescP');
+    const modal = document.getElementById('dossierImageModal');
+
+    if (catSpan) catSpan.textContent = `${target.pathway || 'Beyonder'} • Seq. ${target.sequence}`;
+    if (titleH3) titleH3.textContent = target.name || 'Personagem';
+    if (imgEl) imgEl.src = target.avatarUrl;
+    if (descP) descP.textContent = target.publicBackstory || target.backgroundStory || '';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  closeDossierImageModal() {
+    const modal = document.getElementById('dossierImageModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  async gmPublishWeeklyUpdate() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode publicar atualizações semanais da campanha.', 'error');
+      return;
+    }
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    if (!camp) return;
+    if (!Array.isArray(camp.weeklyUpdates)) camp.weeklyUpdates = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_UPDATES));
+
+    const weekNumber = Math.max(1, Number(document.getElementById('newUpdateWeekInput')?.value) || camp.currentWeek || 1);
+    const title = document.getElementById('newUpdateTitleInput')?.value.trim() || `Crônica da Semana ${weekNumber}`;
+    const arcTag = document.getElementById('newUpdateArcTagInput')?.value.trim() || camp.currentArc || '';
+    const content = document.getElementById('newUpdateContentInput')?.value.trim() || '';
+    const highlights = document.getElementById('newUpdateHighlightsInput')?.value.trim() || '';
+
+    if (!content) {
+      showToast('Escreva o relato da atualização semanal antes de publicar.', 'error');
+      return;
+    }
+
+    camp.weeklyUpdates.unshift({
+      id: `cup_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      weekNumber,
+      title,
+      arcTag,
+      dateStr: `Semana ${weekNumber} • ${new Date().toLocaleDateString('pt-BR')}`,
+      content,
+      highlights
+    });
+
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast(`Atualização "${title}" publicada na linha do tempo da campanha!`, 'crit');
+  }
+
+  async gmDeleteWeeklyUpdate(updateId) {
+    if (!this.isGMUser()) return;
+    const camp = this.getCampaignForChar(this.getActiveChar());
+    if (!camp || !Array.isArray(camp.weeklyUpdates)) return;
+    camp.weeklyUpdates = camp.weeklyUpdates.filter(u => u.id !== updateId);
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCampaignState(this.campaignState);
+    showToast('Atualização semanal removida.');
+  }
+
+  setSharedNoteCategoryFilter(cat) {
+    this.campaignHubState.noteCat = cat || 'all';
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+  }
+
+  async addOrUpdateSharedNote() {
+    const char = this.getActiveChar();
+    const camp = this.getCampaignForChar(char);
+    if (!camp) return;
+    if (!Array.isArray(camp.sharedNotes)) camp.sharedNotes = JSON.parse(JSON.stringify(DEFAULT_SHARED_NOTES));
+
+    const category = document.getElementById('sharedNoteCategorySelect')?.value || 'Pista & Investigação';
+    const title = document.getElementById('sharedNoteTitleInput')?.value.trim() || '';
+    const content = document.getElementById('sharedNoteContentInput')?.value.trim() || '';
+
+    if (!title || !content) {
+      showToast('Preencha o título e o conteúdo da anotação para compartilhar com o grupo.', 'error');
+      return;
+    }
+
+    if (this.campaignHubState.editingNoteId) {
+      const existing = camp.sharedNotes.find(n => n.id === this.campaignHubState.editingNoteId);
+      if (existing) {
+        existing.category = category;
+        existing.title = title;
+        existing.content = content;
+      }
+      this.campaignHubState.editingNoteId = null;
+      showToast('Anotação compartilhada atualizada!', 'crit');
+    } else {
+      camp.sharedNotes.unshift({
+        id: `snote_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        authorCharId: char ? char.id : 'gm',
+        authorUid: this.currentUser?.uid || null,
+        authorName: char ? char.name : (this.currentUser?.name || 'Mestre'),
+        authorPlayer: char ? (char.player || this.currentUser?.name || 'Jogador') : 'Mestre',
+        category,
+        title,
+        content,
+        weekNumber: camp.currentWeek || 1,
+        dateStr: `Semana ${camp.currentWeek || 1} • ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+      });
+      showToast('Anotação publicada no mural compartilhado da campanha!', 'crit');
+    }
+
+    renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
+  }
+
+  startEditSharedNote(noteId) {
+    this.campaignHubState.editingNoteId = noteId;
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+  }
+
+  cancelEditSharedNote() {
+    this.campaignHubState.editingNoteId = null;
+    renderPlayerCampaignHub(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+  }
+
+  async deleteSharedNote(noteId) {
+    const char = this.getActiveChar();
+    const camp = this.getCampaignForChar(char);
+    if (!camp || !Array.isArray(camp.sharedNotes)) return;
+
+    const target = camp.sharedNotes.find(n => n.id === noteId);
+    if (!target) return;
+    const canDelete = this.isGMUser() || (char && target.authorCharId === char.id) || (this.currentUser && target.authorUid === this.currentUser.uid);
+    if (!canDelete) {
+      showToast('Você só pode remover anotações criadas por você.', 'error');
+      return;
+    }
+
+    camp.sharedNotes = camp.sharedNotes.filter(n => n.id !== noteId);
+    if (this.campaignHubState.editingNoteId === noteId) {
+      this.campaignHubState.editingNoteId = null;
+    }
+    renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCampaignStoreTransaction(this.campaignState);
+    showToast('Anotação removida do mural.');
+  }
+
+  updatePublicProfileField(field, value) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    char[field] = value;
+    this.scheduleAutoSave();
+  }
+
+  async syncPublicBackstoryFromSheet() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    if (!char.backgroundStory || !char.backgroundStory.trim()) {
+      showToast('A caixa de Background na aba Notas da sua ficha está vazia no momento.', 'error');
+      return;
+    }
+    char.publicBackstory = char.backgroundStory;
+    char.updatedAt = Date.now();
+    renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast('Background da ficha importado para sua Backstory pública da campanha!', 'crit');
+  }
+
+  async saveMyPublicBackstory() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    const qEl = document.getElementById('myPublicQuoteInput');
+    const bEl = document.getElementById('myPublicBackstoryInput');
+    const iEl = document.getElementById('myPublicInfoInput');
+    if (qEl) char.publicQuote = qEl.value.trim();
+    if (bEl) char.publicBackstory = bEl.value.trim();
+    if (iEl) char.publicInfo = iEl.value.trim();
+    char.updatedAt = Date.now();
+
+    renderPlayerCampaignHub(char, this.charactersMap, this.campaignState, this.currentUser, this.campaignHubState, true);
+    await this.storage.saveCharacter(char, this.charactersMap);
+    showToast(`Backstory e informações públicas de ${char.name} compartilhadas com os jogadores!`, 'crit');
   }
 }
 

@@ -24,6 +24,11 @@ import {
   DEFAULT_CONTRIBUTION_TASKS,
   RESISTANCE_DEGREES,
   WEAKNESS_SEVERITIES,
+  DOSSIER_CATEGORIES,
+  SHARED_NOTE_CATEGORIES,
+  DEFAULT_CAMPAIGN_DOSSIERS,
+  DEFAULT_CAMPAIGN_UPDATES,
+  DEFAULT_SHARED_NOTES,
   createDefaultWeeklyDowntime
 } from '../config/constants.js';
 import {
@@ -602,6 +607,39 @@ export function renderTopNavigation(charactersMap, activeCharacterId, viewMode, 
     }
   }
 
+  // Atualiza barra alternadora principal (Ficha do Personagem vs Aba de Campanha vs Painel do Mestre)
+  const btnMainSheet = document.getElementById('btnMainView-sheet');
+  const btnMainCamp = document.getElementById('btnMainView-campaign');
+  const btnMainGM = document.getElementById('btnMainView-gm');
+  const campBadge = document.getElementById('campaignHubBadge');
+
+  if (campBadge && activeCamp) {
+    const dossiersCount = (activeCamp.dossiers || DEFAULT_CAMPAIGN_DOSSIERS).filter(d => isGMUser || d.visibleToPlayers !== false).length;
+    campBadge.textContent = `Sem. ${activeCamp.currentWeek || 1} • ${dossiersCount} Dossiês`;
+  }
+
+  const activeMainClass = 'flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-brass-400 text-obsidian-950 shadow-lg border border-brass-300';
+  const inactiveMainClass = 'flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-obsidian-900 hover:bg-brass-500/20 text-brass-200 border border-brass-400/35';
+
+  if (btnMainSheet) {
+    btnMainSheet.className = viewMode === 'sheet' ? activeMainClass : inactiveMainClass;
+  }
+  if (btnMainCamp) {
+    btnMainCamp.className = viewMode === 'campaign' ? activeMainClass : inactiveMainClass;
+  }
+  if (btnMainGM) {
+    if (!isGMUser) {
+      btnMainGM.classList.add('hidden');
+      btnMainGM.classList.remove('flex');
+    } else {
+      btnMainGM.classList.remove('hidden');
+      btnMainGM.classList.add('flex');
+      btnMainGM.className = viewMode === 'gm'
+        ? 'flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-extrabold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-amber-400 text-obsidian-950 shadow-lg border border-amber-300'
+        : 'flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-obsidian-900 hover:bg-amber-500/20 text-amber-200 border border-amber-400/35';
+    }
+  }
+
   // Renderiza badge do usuário logado
   const userProfileBadge = document.getElementById('loggedUserBadgeContainer');
   if (userProfileBadge) {
@@ -849,6 +887,9 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <button onclick="app.setViewMode('campaign')" class="px-3.5 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-400 text-amber-200 hover:text-obsidian-950 border border-amber-400/50 text-xs font-display font-bold flex items-center gap-1.5 transition-all shadow">
+              <i class="fa-solid fa-folder-open"></i> Gerenciar Dossiês, Resumo & Progresso (Aba Campanha)
+            </button>
             <button onclick="app.openCreateCampaignModal()" class="px-3.5 py-2 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 border border-brass-400/40 text-brass-200 text-xs font-bold flex items-center gap-1.5 transition-all">
               <i class="fa-solid fa-folder-plus text-brass-400"></i> Nova Campanha
             </button>
@@ -3838,4 +3879,929 @@ export function renderCombatStylesAndProficiencies(char, forceRebuild = false) {
       `).join('');
     }
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// 12. ABA DE CAMPANHA DOS JOGADORES (RESUMO, DOSSIÊS COM IMAGENS, PROGRESSO SEMANAL, ANOTAÇÕES COMPARTILHADAS & BACKSTORIES)
+// ---------------------------------------------------------------------------
+export function renderPlayerCampaignHub(char, charactersMap, campaignState, currentUser, hubState = {}, forceRebuild = false) {
+  const container = document.getElementById('playerCampaignHubContainer');
+  if (!container) return;
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
+
+  const isGMUser = currentUser?.role === 'gm';
+  const campaigns = campaignState?.campaigns || [];
+  const activeCamp = (char && campaigns.find(c => Array.isArray(c.characterIds) && c.characterIds.includes(char.id)))
+    || campaigns.find(c => c.id === campaignState?.activeCampaignId)
+    || campaigns[0];
+
+  if (!activeCamp) {
+    container.innerHTML = `
+      <div class="victorian-card-gold rounded-xl p-8 text-center space-y-3">
+        <i class="fa-solid fa-compass text-3xl text-brass-400"></i>
+        <h3 class="font-display font-bold text-lg text-brass-200">Nenhuma Campanha Ativa</h3>
+        <p class="text-xs text-slate-400">Aguarde o Mestre criar ou ativar uma campanha para visualizar o resumo, dossiês e atualizações.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Garante arrays e campos padrão na campanha ativa
+  if (!Array.isArray(activeCamp.dossiers)) {
+    activeCamp.dossiers = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_DOSSIERS));
+  }
+  if (!Array.isArray(activeCamp.weeklyUpdates)) {
+    activeCamp.weeklyUpdates = JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_UPDATES));
+  }
+  if (!Array.isArray(activeCamp.sharedNotes)) {
+    activeCamp.sharedNotes = JSON.parse(JSON.stringify(DEFAULT_SHARED_NOTES));
+  }
+  if (!activeCamp.campaignSummary) {
+    activeCamp.campaignSummary = 'No Reino de Loen, entre a fumaça das máquinas a vapor e os mistérios da Quarta Época, os integrantes da campanha investigam ocorrências sobrenaturais, digerem suas poções Beyonder e enfrentam conspirações ocultas sob o olhar do Nevoeiro Cinza.';
+  }
+  if (!activeCamp.currentObjectives) {
+    activeCamp.currentObjectives = '1. Investigar as pistas recentes descobertas na cidade.\n2. Proteger as âncoras e progredir na digestão da poção.\n3. Compartilhar descobertas e preparar o grupo para a próxima missão.';
+  }
+  if (!activeCamp.currentArc) {
+    activeCamp.currentArc = `Arco Atual • Semana ${activeCamp.currentWeek || 1}`;
+  }
+  const progressPct = clamp(Number(activeCamp.campaignProgressPct ?? 25), 0, 100);
+
+  const subTab = hubState.subTab || 'resumo';
+  const dossierCatFilter = hubState.dossierCat || 'all';
+  const dossierSearch = (hubState.dossierSearch || '').toLowerCase().trim();
+  const noteCatFilter = hubState.noteCat || 'all';
+
+  const campCharIds = new Set(activeCamp.characterIds || []);
+  const allChars = Object.values(charactersMap || {}).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const partyChars = allChars.filter(c => campCharIds.size === 0 || campCharIds.has(c.id));
+
+  const visibleDossiers = activeCamp.dossiers.filter(d => isGMUser || d.visibleToPlayers !== false);
+  const filteredDossiers = visibleDossiers.filter(d => {
+    const matchCat = dossierCatFilter === 'all' || d.category === dossierCatFilter;
+    const matchTxt = !dossierSearch ||
+      (d.title || '').toLowerCase().includes(dossierSearch) ||
+      (d.subtitle || '').toLowerCase().includes(dossierSearch) ||
+      (d.description || '').toLowerCase().includes(dossierSearch);
+    return matchCat && matchTxt;
+  });
+
+  const filteredNotes = activeCamp.sharedNotes.filter(n => {
+    return noteCatFilter === 'all' || n.category === noteCatFilter;
+  });
+
+  // Combina atualizações semanais publicadas pelo Mestre + histórico de semanas encerradas
+  const combinedUpdates = [
+    ...(activeCamp.weeklyUpdates || []).map(u => ({ ...u, _source: 'manual' })),
+    ...(activeCamp.weekHistory || []).map(wh => ({
+      id: wh.id,
+      weekNumber: wh.weekNumber,
+      title: wh.title || `Fechamento da Semana ${wh.weekNumber}`,
+      arcTag: `Resumo de Passagem de Semana`,
+      dateStr: wh.dateStr || `Semana ${wh.weekNumber}`,
+      content: wh.generalNarrative || 'Semana concluída pelo Mestre.',
+      highlights: '',
+      playerSummaries: wh.playerSummaries || [],
+      _source: 'weekHistory'
+    }))
+  ].sort((a, b) => (Number(b.weekNumber) || 0) - (Number(a.weekNumber) || 0));
+
+  const editingDossier = hubState.editingDossierId
+    ? activeCamp.dossiers.find(d => d.id === hubState.editingDossierId)
+    : null;
+
+  const editingNote = hubState.editingNoteId
+    ? activeCamp.sharedNotes.find(n => n.id === hubState.editingNoteId)
+    : null;
+
+  const subTabsDef = [
+    { key: 'resumo', label: 'Resumo da Campanha', icon: 'fa-compass', count: null },
+    { key: 'dossies', label: 'Dossiês (Locais, NPCs & Itens)', icon: 'fa-folder-open', count: visibleDossiers.length },
+    { key: 'progresso', label: 'Progresso & Semanas', icon: 'fa-calendar-check', count: combinedUpdates.length },
+    { key: 'anotacoes', label: 'Anotações Compartilhadas', icon: 'fa-note-sticky', count: activeCamp.sharedNotes.length },
+    { key: 'backstories', label: 'Backstories & Personagens', icon: 'fa-masks-theater', count: partyChars.length }
+  ];
+
+  container.innerHTML = `
+    <div class="space-y-5">
+      <!-- 1. CABEÇALHO GERAL DA CAMPANHA & BARRA DE PROGRESSO -->
+      <div class="victorian-card-gold rounded-xl p-4 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-brass-400/25 pb-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-400/40 font-display font-bold text-xs">
+                <i class="fa-solid fa-calendar-week mr-1"></i> Semana Atual #${activeCamp.currentWeek || 1}
+              </span>
+              <span class="px-2.5 py-0.5 rounded-full bg-eldritch-950 text-eldritch-300 border border-eldritch-400/40 font-display font-bold text-xs">
+                <i class="fa-solid fa-book-bookmark mr-1"></i> ${escapeHtml(activeCamp.currentArc || 'Arco I')}
+              </span>
+              <span class="px-2.5 py-0.5 rounded-full bg-obsidian-900 text-brass-300 border border-brass-400/30 font-display font-semibold text-xs">
+                <i class="fa-solid fa-users mr-1"></i> ${partyChars.length} Integrante(s)
+              </span>
+            </div>
+            <h2 class="font-display font-extrabold text-xl sm:text-2xl text-brass-200 tracking-wide pt-1">
+              ${escapeHtml(activeCamp.name || 'Campanha Beyonder')}
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+              ${escapeHtml(activeCamp.description || '')}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button onclick="app.setViewMode('sheet')" class="px-4 py-2 rounded-lg bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/45 font-display font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow">
+              <i class="fa-solid fa-scroll"></i> Voltar para Minha Ficha
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Progresso do Arco / Campanha -->
+        <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3 space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-display font-bold uppercase tracking-wider text-brass-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-hourglass-half text-amber-400"></i> Progresso do Arco Atual (${escapeHtml(activeCamp.currentArc || 'Campanha')})
+            </span>
+            <span class="font-display font-extrabold text-amber-300">${progressPct}% Concluído</span>
+          </div>
+          <div class="w-full h-2.5 bg-obsidian-900 rounded-full overflow-hidden border border-slate-800">
+            <div class="h-full bg-gradient-to-r from-amber-600 via-brass-400 to-emerald-400 transition-all duration-300" style="width: ${progressPct}%"></div>
+          </div>
+        </div>
+
+        <!-- SUB-ABAS DA CAMPANHA -->
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          ${subTabsDef.map(st => {
+            const isActive = subTab === st.key;
+            return `
+              <button id="campSubTabBtn-${st.key}" onclick="app.switchCampaignHubSubTab('${st.key}')"
+                class="flex-1 min-w-[140px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${isActive ? 'bg-brass-400 text-obsidian-950 shadow-md' : 'bg-obsidian-900/85 hover:bg-obsidian-800 text-slate-300 border border-slate-800'}">
+                <i class="fa-solid ${st.icon}"></i>
+                <span>${st.label}</span>
+                ${st.count !== null ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${isActive ? 'bg-obsidian-950 text-brass-300' : 'bg-obsidian-950 text-slate-400'}">${st.count}</span>` : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- =====================================================================
+           SUB-ABA 1: RESUMO DA CAMPANHA & VISÃO GERAL
+           ===================================================================== -->
+      ${subTab === 'resumo' ? `
+        <div class="space-y-5">
+          ${isGMUser ? `
+            <!-- Editor Exclusivo do Mestre para o Resumo da Campanha -->
+            <div class="victorian-card rounded-xl p-4 sm:p-5 border border-amber-400/45 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                <div>
+                  <span class="text-[10px] font-display uppercase tracking-widest text-amber-400 block">Edição Exclusiva do Mestre</span>
+                  <h3 class="font-display font-bold text-sm sm:text-base text-brass-200 flex items-center gap-2">
+                    <i class="fa-solid fa-crown text-amber-400"></i> Editar Resumo Geral, Objetivos & Progresso da Campanha
+                  </h3>
+                </div>
+                <button onclick="app.gmSaveCampaignOverview()" class="px-4 py-2 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase flex items-center gap-1.5 shadow">
+                  <i class="fa-solid fa-floppy-disk"></i> Salvar Resumo da Campanha
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div class="sm:col-span-5">
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Título da Campanha</label>
+                  <input id="campOverviewNameInput" type="text" value="${escapeHtml(activeCamp.name || '')}" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs font-bold text-brass-200" />
+                </div>
+                <div class="sm:col-span-5">
+                  <label class="block text-[10px] uppercase text-eldritch-300 mb-1">Capítulo / Arco Atual</label>
+                  <input id="campOverviewArcInput" type="text" value="${escapeHtml(activeCamp.currentArc || '')}" placeholder="Ex: Arco I — Sombras sobre Tingen" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-eldritch-200" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-[10px] uppercase text-amber-300 mb-1">Progresso (%)</label>
+                  <input id="campOverviewPctInput" type="number" min="0" max="100" value="${progressPct}" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center font-bold text-amber-200" />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Sinopse Curta (Subtítulo)</label>
+                <input id="campOverviewDescInput" type="text" value="${escapeHtml(activeCamp.description || '')}" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-slate-200" />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Resumo Completo da História & Ambientação da Campanha</label>
+                  <textarea id="campOverviewSummaryInput" rows="4" class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed">${escapeHtml(activeCamp.campaignSummary || '')}</textarea>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase text-emerald-300 mb-1">Objetivos Atuais & Missões em Andamento do Grupo</label>
+                  <textarea id="campOverviewObjectivesInput" rows="4" class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed">${escapeHtml(activeCamp.currentObjectives || '')}</textarea>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Painel de Resumo da Campanha e Objetivos para todos os Jogadores -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div class="lg:col-span-7 victorian-card rounded-xl p-5 space-y-3 border-l-4 border-l-brass-400">
+              <div class="flex items-center justify-between border-b border-brass-400/20 pb-2.5">
+                <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+                  <i class="fa-solid fa-book-open text-brass-400"></i> Resumo da Campanha & Contexto Histórico
+                </h3>
+                <span class="text-[11px] text-slate-400 font-display">Crônica Oficial</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(activeCamp.campaignSummary || '')}</p>
+            </div>
+
+            <div class="lg:col-span-5 victorian-card rounded-xl p-5 space-y-3 border-l-4 border-l-emerald-500">
+              <div class="flex items-center justify-between border-b border-brass-400/20 pb-2.5">
+                <h3 class="font-display font-bold text-base sm:text-lg text-emerald-300 flex items-center gap-2">
+                  <i class="fa-solid fa-bullseye text-emerald-400"></i> Objetivos Atuais do Grupo
+                </h3>
+                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase">Em Curso</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(activeCamp.currentObjectives || '')}</p>
+            </div>
+          </div>
+
+          <!-- Atalhos Rápidos das Seções da Campanha -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div onclick="app.switchCampaignHubSubTab('dossies')" class="victorian-card rounded-xl p-4 cursor-pointer hover:border-brass-400 transition-all flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-display uppercase text-brass-400">Arquivos do Mestre</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">Dossiês Ilustrados</div>
+                <div class="text-xs text-slate-400 mt-0.5">${visibleDossiers.length} locais, NPCs e itens</div>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-obsidian-950 border border-brass-400/40 flex items-center justify-center text-brass-300 text-lg">
+                <i class="fa-solid fa-folder-open"></i>
+              </div>
+            </div>
+
+            <div onclick="app.switchCampaignHubSubTab('progresso')" class="victorian-card rounded-xl p-4 cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-display uppercase text-amber-400">Linha do Tempo</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">Progresso Semanal</div>
+                <div class="text-xs text-slate-400 mt-0.5">${combinedUpdates.length} atualização(ões)</div>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-obsidian-950 border border-amber-400/40 flex items-center justify-center text-amber-300 text-lg">
+                <i class="fa-solid fa-calendar-check"></i>
+              </div>
+            </div>
+
+            <div onclick="app.switchCampaignHubSubTab('anotacoes')" class="victorian-card rounded-xl p-4 cursor-pointer hover:border-astral-400 transition-all flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-display uppercase text-astral-400">Quadro Cooperativo</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">Notas Compartilhadas</div>
+                <div class="text-xs text-slate-400 mt-0.5">${activeCamp.sharedNotes.length} nota(s) do grupo</div>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-obsidian-950 border border-astral-400/40 flex items-center justify-center text-astral-300 text-lg">
+                <i class="fa-solid fa-note-sticky"></i>
+              </div>
+            </div>
+
+            <div onclick="app.switchCampaignHubSubTab('backstories')" class="victorian-card rounded-xl p-4 cursor-pointer hover:border-eldritch-400 transition-all flex items-center justify-between gap-3">
+              <div>
+                <div class="text-[10px] font-display uppercase text-eldritch-400">Histórias & Perfis</div>
+                <div class="font-display font-bold text-sm text-brass-200 mt-0.5">Backstories do Grupo</div>
+                <div class="text-xs text-slate-400 mt-0.5">${partyChars.length} personagem(ns)</div>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-obsidian-950 border border-eldritch-400/40 flex items-center justify-center text-eldritch-300 text-lg">
+                <i class="fa-solid fa-masks-theater"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Integrantes da Campanha -->
+          <div class="victorian-card rounded-xl p-5 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-2.5">
+              <div>
+                <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                  <i class="fa-solid fa-users text-brass-400"></i> Personagens Integrantes da Campanha
+                </h3>
+                <p class="text-xs text-slate-400">Clique em um integrante para ler sua Backstory e informações públicas compartilhadas</p>
+              </div>
+              <button onclick="app.switchCampaignHubSubTab('backstories')" class="text-xs font-display font-bold text-brass-300 hover:underline">
+                Ver Todas as Backstories <i class="fa-solid fa-arrow-right ml-1"></i>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              ${partyChars.map(pc => `
+                <div onclick="app.switchCampaignHubSubTab('backstories')" class="bg-obsidian-950/90 border border-slate-800 hover:border-brass-400/50 rounded-xl p-3.5 cursor-pointer transition-all flex items-center gap-3">
+                  ${pc.avatarUrl ? `
+                    <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}" class="w-12 h-14 rounded-lg object-cover border border-brass-400/50 shrink-0" />
+                  ` : `
+                    <div class="w-12 h-14 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-lg shrink-0">
+                      <i class="fa-solid fa-user-secret"></i>
+                    </div>
+                  `}
+                  <div class="min-w-0 flex-1">
+                    <div class="text-[10px] font-display uppercase text-eldritch-300 truncate">${escapeHtml(pc.pathway || 'Beyonder')} • ${pc.sequence === 'Humana' ? 'Humano' : `Seq. ${pc.sequence}`}</div>
+                    <h4 class="font-display font-bold text-sm text-brass-200 truncate">${escapeHtml(pc.name)}</h4>
+                    <div class="text-[11px] text-slate-400 truncate"><i class="fa-solid fa-user text-[9px] mr-1"></i>${escapeHtml(pc.player || 'Jogador')} • ${escapeHtml(pc.organization || 'Independente')}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- =====================================================================
+           SUB-ABA 2: DOSSIÊS DO MESTRE (LOCAIS, PERSONAGENS & ITENS COM IMAGENS)
+           ===================================================================== -->
+      ${subTab === 'dossies' ? `
+        <div class="space-y-5">
+          ${isGMUser ? `
+            <!-- Formulário Exclusivo do Mestre para Criar ou Editar Dossiês com Imagem -->
+            <div class="victorian-card-gold rounded-xl p-4 sm:p-5 border border-amber-400/50 space-y-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-2.5">
+                <div>
+                  <span class="text-[10px] font-display uppercase tracking-widest text-amber-400 block">Arquivo Confidencial do Mestre</span>
+                  <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                    <i class="fa-solid fa-folder-plus text-amber-400"></i> ${editingDossier ? `Editando Dossiê: ${escapeHtml(editingDossier.title)}` : 'Criar Novo Dossiê Ilustrado (Local, Personagem ou Item)'}
+                  </h3>
+                </div>
+                ${editingDossier ? `
+                  <button onclick="app.gmCancelEditDossier()" class="px-3 py-1 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-slate-300 text-xs font-bold">
+                    Cancelar Edição
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div class="sm:col-span-3">
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Categoria do Dossiê *</label>
+                  <select id="newDossierCategorySelect" class="sheet-input w-full px-3 py-2 rounded-lg text-xs font-bold text-amber-200">
+                    <option value="locais" ${(editingDossier?.category || 'locais') === 'locais' ? 'selected' : ''}>Local / Região</option>
+                    <option value="personagens" ${editingDossier?.category === 'personagens' ? 'selected' : ''}>Personagem / NPC</option>
+                    <option value="itens" ${editingDossier?.category === 'itens' ? 'selected' : ''}>Item / Artefato</option>
+                  </select>
+                </div>
+                <div class="sm:col-span-5">
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Nome do Local, Personagem ou Item *</label>
+                  <input id="newDossierTitleInput" type="text" value="${escapeHtml(editingDossier?.title || '')}"
+                    placeholder="Ex: Catedral de Santa Selena / Capitão Dunn Smith / Artefato 2-049"
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-xs font-bold text-slate-100" />
+                </div>
+                <div class="sm:col-span-4">
+                  <label class="block text-[10px] uppercase text-slate-400 mb-1">Subtítulo / Localização / Classificação</label>
+                  <input id="newDossierSubtitleInput" type="text" value="${escapeHtml(editingDossier?.subtitle || '')}"
+                    placeholder="Ex: Tingen • Sede dos Falcões Noturnos"
+                    class="sheet-input w-full px-3 py-2 rounded-lg text-xs text-slate-300" />
+                </div>
+              </div>
+
+              <!-- Upload de Imagem ou URL para o Dossiê -->
+              <div class="bg-obsidian-950/85 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 flex-1">
+                  <button onclick="app.triggerDossierImageUpload('new')" type="button"
+                    class="px-3.5 py-2 rounded-lg bg-brass-500/25 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/45 font-display font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all">
+                    <i class="fa-solid fa-upload"></i> Enviar Imagem
+                  </button>
+                  <input id="newDossierImageUrlInput" type="text"
+                    value="${escapeHtml(hubState.newDossierDraftImage || editingDossier?.imageUrl || '')}"
+                    placeholder="Ou cole aqui a URL da imagem do Local, Personagem ou Item..."
+                    class="sheet-input flex-1 px-3 py-1.5 rounded-lg text-xs text-slate-200" />
+                </div>
+                <label class="inline-flex items-center gap-2 text-xs text-emerald-300 font-semibold cursor-pointer shrink-0 px-2">
+                  <input id="newDossierVisibleCheck" type="checkbox" ${(editingDossier ? editingDossier.visibleToPlayers !== false : true) ? 'checked' : ''} class="accent-emerald-400 rounded" />
+                  <span>Visível aos Jogadores</span>
+                </label>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-slate-300 mb-1">Descrição / Informações Descobertas *</label>
+                <textarea id="newDossierDescInput" rows="3"
+                  placeholder="Escreva a descrição, história, aparência e segredos revelados para os jogadores..."
+                  class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed">${escapeHtml(editingDossier?.description || '')}</textarea>
+              </div>
+
+              <div class="flex justify-end">
+                <button onclick="app.gmCreateOrUpdateDossier()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-brass-400 to-amber-500 hover:from-brass-300 hover:to-amber-400 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all">
+                  <i class="fa-solid fa-check"></i> ${editingDossier ? 'Salvar Alterações no Dossiê' : 'Publicar Dossiê na Campanha'}
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Barra de Filtro de Dossiês (Locais, Personagens, Itens) & Busca -->
+          <div class="victorian-card rounded-xl p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap gap-1.5">
+                ${DOSSIER_CATEGORIES.map(cat => {
+                  const active = dossierCatFilter === cat.key;
+                  const countInCat = cat.key === 'all'
+                    ? visibleDossiers.length
+                    : visibleDossiers.filter(d => d.category === cat.key).length;
+                  return `
+                    <button onclick="app.setCampaignDossierCatFilter('${cat.key}')"
+                      class="px-3.5 py-2 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 border ${active ? 'bg-brass-400 text-obsidian-950 border-brass-300 shadow' : 'bg-obsidian-950 text-slate-300 border-slate-800 hover:border-brass-400/40'}">
+                      <i class="fa-solid ${cat.icon}"></i>
+                      <span>${cat.label}</span>
+                      <span class="px-1.5 py-0.2 rounded-full text-[10px] ${active ? 'bg-obsidian-950 text-brass-300' : 'bg-obsidian-900 text-slate-400'}">${countInCat}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+
+              <div class="relative w-full sm:w-64">
+                <i class="fa-solid fa-magnifying-glass text-slate-500 absolute left-3 top-2.5 text-xs"></i>
+                <input id="dossierSearchInput" type="text" value="${escapeHtml(hubState.dossierSearch || '')}"
+                  oninput="app.setCampaignDossierSearch(this.value)"
+                  placeholder="Buscar local, NPC ou item..."
+                  class="sheet-input pl-8 pr-3 py-1.5 rounded-lg text-xs w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Grid de Cards de Dossiês com Imagens -->
+          <div id="campaignDossiersGridContainer">
+            ${renderDossiersGridCardsHtml(filteredDossiers, isGMUser)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- =====================================================================
+           SUB-ABA 3: PROGRESSO DA CAMPANHA & ATUALIZAÇÕES SEMANAIS
+           ===================================================================== -->
+      ${subTab === 'progresso' ? `
+        <div class="space-y-5">
+          ${isGMUser ? `
+            <!-- Formulário do Mestre para Publicar Nova Atualização Semanal -->
+            <div class="victorian-card-gold rounded-xl p-4 sm:p-5 border border-emerald-500/40 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-2.5">
+                <div>
+                  <span class="text-[10px] font-display uppercase tracking-widest text-emerald-400 block">Registro de Progresso do Mestre</span>
+                  <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                    <i class="fa-solid fa-feather-pointed text-emerald-400"></i> Publicar Nova Atualização Semanal da Campanha
+                  </h3>
+                </div>
+                <button onclick="app.openPassWeekModal()" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-400 text-emerald-200 hover:text-obsidian-950 border border-emerald-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
+                  <i class="fa-solid fa-forward-fast"></i> Passar a Semana Completa
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div class="sm:col-span-2">
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Semana #</label>
+                  <input id="newUpdateWeekInput" type="number" min="1" value="${activeCamp.currentWeek || 1}" class="sheet-input w-full px-2.5 py-1.5 rounded-lg text-xs text-center font-bold text-amber-200" />
+                </div>
+                <div class="sm:col-span-6">
+                  <label class="block text-[10px] uppercase text-brass-300 mb-1">Título da Atualização / Sessão *</label>
+                  <input id="newUpdateTitleInput" type="text" placeholder="Ex: Semana 2 — O Caso da Chaminé Vermelha" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs font-bold text-slate-100" />
+                </div>
+                <div class="sm:col-span-4">
+                  <label class="block text-[10px] uppercase text-eldritch-300 mb-1">Tag de Arco / Marco</label>
+                  <input id="newUpdateArcTagInput" type="text" value="${escapeHtml(activeCamp.currentArc || 'Arco I')}" placeholder="Ex: Arco 1 • Investigação" class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-eldritch-200" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[10px] uppercase text-slate-300 mb-1">Relato Narrativo da Semana / O que Aconteceu *</label>
+                  <textarea id="newUpdateContentInput" rows="3" placeholder="Resuma os principais acontecimentos da semana ou sessão para os jogadores acompanharem o avanço da história..." class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed"></textarea>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase text-amber-300 mb-1">Destaques, Descobertas & Consequências (Opcional)</label>
+                  <textarea id="newUpdateHighlightsInput" rows="3" placeholder="• Pista encontrada no porto&#10;• Reunião do Clube de Tarô realizada..." class="sheet-input w-full p-2.5 rounded-lg text-xs text-amber-100 leading-relaxed"></textarea>
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button onclick="app.gmPublishWeeklyUpdate()" class="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all">
+                  <i class="fa-solid fa-paper-plane"></i> Publicar Atualização Semanal
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Linha do Tempo de Atualizações Semanais -->
+          <div class="victorian-card rounded-xl p-5 space-y-4">
+            <div class="border-b border-brass-400/20 pb-3">
+              <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-brass-400"></i> Linha do Tempo — Atualizações Semanais da Campanha
+              </h3>
+              <p class="text-xs text-slate-400">Acompanhe semana a semana o avanço da campanha, os capítulos concluídos e os resumos de passagem de semana</p>
+            </div>
+
+            ${combinedUpdates.length === 0 ? `
+              <p class="text-xs text-slate-500 italic text-center py-6">Nenhuma atualização semanal registrada ainda nesta campanha.</p>
+            ` : `
+              <div class="space-y-4">
+                ${combinedUpdates.map(up => `
+                  <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-4 sm:p-5 space-y-3 relative">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-400/40 font-display font-extrabold text-xs">
+                          Semana #${up.weekNumber || 1}
+                        </span>
+                        ${up.arcTag ? `<span class="px-2 py-0.5 rounded bg-eldritch-950 text-eldritch-300 border border-eldritch-500/35 text-[10px] font-bold uppercase">${escapeHtml(up.arcTag)}</span>` : ''}
+                        <h4 class="font-display font-bold text-sm sm:text-base text-brass-200">${escapeHtml(up.title || `Semana ${up.weekNumber}`)}</h4>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-[11px] text-slate-400">${escapeHtml(up.dateStr || '')}</span>
+                        ${(isGMUser && up._source === 'manual') ? `
+                          <button onclick="app.gmDeleteWeeklyUpdate('${up.id}')" title="Remover atualização" class="text-slate-500 hover:text-crimson-400 text-xs px-1">
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <p class="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(up.content || '')}</p>
+
+                    ${up.highlights ? `
+                      <div class="bg-obsidian-900/90 border border-amber-400/30 rounded-lg p-3 space-y-1">
+                        <div class="text-[10px] font-display font-bold uppercase text-amber-300">
+                          <i class="fa-solid fa-star mr-1"></i> Destaques & Descobertas da Semana:
+                        </div>
+                        <p class="text-xs text-slate-200 whitespace-pre-line leading-relaxed">${escapeHtml(up.highlights)}</p>
+                      </div>
+                    ` : ''}
+
+                    ${(up.playerSummaries && up.playerSummaries.length > 0) ? `
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
+                        ${up.playerSummaries.map(ps => `
+                          <div class="bg-obsidian-900/95 border border-slate-800 rounded-lg p-2.5 space-y-1">
+                            <div class="font-display font-bold text-xs text-brass-300">${escapeHtml(ps.charName)}</div>
+                            <div class="text-[10px] text-emerald-300 font-semibold">${escapeHtml(ps.recoveryText || '')}</div>
+                            ${ps.eventsText ? `<div class="text-[11px] text-slate-300">${escapeHtml(ps.eventsText)}</div>` : ''}
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- =====================================================================
+           SUB-ABA 4: ANOTAÇÕES COMPARTILHADAS ENTRE OS JOGADORES
+           ===================================================================== -->
+      ${subTab === 'anotacoes' ? `
+        <div class="space-y-5">
+          <!-- Formulário para Qualquer Jogador Publicar ou Editar Anotação Compartilhada -->
+          <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3.5">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-2.5">
+              <div>
+                <span class="text-[10px] font-display uppercase tracking-widest text-astral-300 block">Caderno Coletivo da Mesa</span>
+                <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
+                  <i class="fa-solid fa-pen-fancy text-astral-400"></i> ${editingNote ? `Editando Anotação: ${escapeHtml(editingNote.title)}` : 'Compartilhar Nova Anotação com os Outros Jogadores'}
+                </h3>
+                <p class="text-xs text-slate-400">
+                  Publique pistas, teorias sobre a campanha, planos táticos ou anotações de sessão para que todos os jogadores vejam nesta aba.
+                </p>
+              </div>
+              ${editingNote ? `
+                <button onclick="app.cancelEditSharedNote()" class="px-3 py-1 rounded-lg bg-obsidian-800 text-slate-300 text-xs font-bold">
+                  Cancelar Edição
+                </button>
+              ` : ''}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div class="sm:col-span-4">
+                <label class="block text-[10px] uppercase text-astral-300 mb-1">Categoria da Anotação</label>
+                <select id="sharedNoteCategorySelect" class="sheet-input w-full px-3 py-2 rounded-lg text-xs font-bold text-astral-200">
+                  ${SHARED_NOTE_CATEGORIES.map(c => `<option value="${c}" ${(editingNote?.category || SHARED_NOTE_CATEGORIES[0]) === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+              </div>
+              <div class="sm:col-span-8">
+                <label class="block text-[10px] uppercase text-brass-300 mb-1">Título da Anotação / Pista *</label>
+                <input id="sharedNoteTitleInput" type="text" value="${escapeHtml(editingNote?.title || '')}"
+                  placeholder="Ex: Pistas sobre o culto em Tingen / Ingredientes que precisamos comprar..."
+                  class="sheet-input w-full px-3.5 py-2 rounded-lg text-xs font-bold text-slate-100" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] uppercase text-slate-300 mb-1">Conteúdo da Anotação Compartilhada *</label>
+              <textarea id="sharedNoteContentInput" rows="3"
+                placeholder="Escreva aqui sua anotação para compartilhar com todos os jogadores da campanha..."
+                class="sheet-input w-full p-2.5 rounded-lg text-xs text-slate-100 leading-relaxed">${escapeHtml(editingNote?.content || '')}</textarea>
+            </div>
+
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] text-slate-400">
+                <i class="fa-solid fa-user-pen text-brass-400 mr-1"></i> Publicando como: <strong class="text-brass-200">${escapeHtml(char ? char.name : (currentUser?.name || 'Mestre'))}</strong>
+              </span>
+              <button onclick="app.addOrUpdateSharedNote()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-astral-500 to-cyan-500 hover:from-astral-400 hover:to-cyan-400 text-obsidian-950 font-display font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all">
+                <i class="fa-solid fa-share-nodes"></i> ${editingNote ? 'Salvar Alterações na Nota' : 'Publicar no Mural do Grupo'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Filtro por Categoria de Anotações Compartilhadas -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button onclick="app.setSharedNoteCategoryFilter('all')"
+              class="px-3 py-1.5 rounded-lg text-xs font-display font-bold border transition-all ${noteCatFilter === 'all' ? 'bg-brass-400 text-obsidian-950 border-brass-300' : 'bg-obsidian-950 text-slate-300 border-slate-800'}">
+              Todas (${activeCamp.sharedNotes.length})
+            </button>
+            ${SHARED_NOTE_CATEGORIES.map(c => {
+              const cnt = activeCamp.sharedNotes.filter(n => n.category === c).length;
+              return `
+                <button onclick="app.setSharedNoteCategoryFilter('${c}')"
+                  class="px-3 py-1.5 rounded-lg text-xs font-display font-bold border transition-all ${noteCatFilter === c ? 'bg-astral-400 text-obsidian-950 border-astral-300' : 'bg-obsidian-950 text-slate-300 border-slate-800 hover:border-astral-400/40'}">
+                  ${escapeHtml(c)} (${cnt})
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Lista de Anotações Compartilhadas -->
+          ${filteredNotes.length === 0 ? `
+            <div class="victorian-card rounded-xl p-8 text-center text-xs text-slate-400">
+              Nenhuma anotação compartilhada encontrada nesta categoria. Seja o primeiro a compartilhar uma nota acima!
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${filteredNotes.map(note => {
+                const authorChar = charactersMap?.[note.authorCharId];
+                const avatar = authorChar?.avatarUrl || '';
+                const canModify = isGMUser || (char && note.authorCharId === char.id) || (currentUser && note.authorUid && note.authorUid === currentUser.uid);
+                return `
+                  <div class="victorian-card rounded-xl p-4 flex flex-col justify-between border border-slate-800 hover:border-astral-400/40 space-y-3">
+                    <div class="space-y-2.5">
+                      <div class="flex items-start justify-between gap-2 border-b border-slate-800 pb-2.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                          ${avatar ? `
+                            <img src="${escapeHtml(avatar)}" alt="${escapeHtml(note.authorName || '')}" class="w-9 h-9 rounded-lg object-cover border border-brass-400/50 shrink-0" />
+                          ` : `
+                            <div class="w-9 h-9 rounded-lg bg-obsidian-900 border border-astral-400/35 flex items-center justify-center text-astral-300 text-xs shrink-0">
+                              <i class="fa-solid fa-feather-pointed"></i>
+                            </div>
+                          `}
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class="px-2 py-0.2 rounded bg-astral-950 text-astral-300 border border-astral-500/40 text-[9px] font-display font-bold uppercase">
+                                ${escapeHtml(note.category || 'Nota')}
+                              </span>
+                              <span class="text-[10px] text-slate-400">${escapeHtml(note.dateStr || `Semana ${note.weekNumber || 1}`)}</span>
+                            </div>
+                            <div class="text-xs font-bold text-brass-200 truncate mt-0.5">
+                              Por: ${escapeHtml(note.authorName || 'Jogador')}
+                            </div>
+                          </div>
+                        </div>
+
+                        ${canModify ? `
+                          <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="app.startEditSharedNote('${note.id}')" title="Editar anotação" class="p-1.5 rounded bg-obsidian-900 hover:bg-brass-500/20 text-slate-400 hover:text-brass-200 border border-slate-800 text-xs">
+                              <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="app.deleteSharedNote('${note.id}')" title="Excluir anotação" class="p-1.5 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-400 hover:text-crimson-300 border border-slate-800 text-xs">
+                              <i class="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        ` : ''}
+                      </div>
+
+                      <h4 class="font-display font-bold text-sm sm:text-base text-amber-200">${escapeHtml(note.title || 'Anotação')}</h4>
+                      <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(note.content || '')}</p>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      ` : ''}
+
+      <!-- =====================================================================
+           SUB-ABA 5: ABA DEDICADA DE BACKSTORIES & INFORMAÇÕES DOS PERSONAGENS
+           ===================================================================== -->
+      ${subTab === 'backstories' ? `
+        <div class="space-y-5">
+          ${char ? `
+            <!-- Editor da Backstory & Informações Públicas do Personagem Ativo -->
+            <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-3.5 border border-eldritch-400/45">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/25 pb-3">
+                <div>
+                  <span class="text-[10px] font-display uppercase tracking-widest text-eldritch-300 block">Apresentação Pública na Campanha</span>
+                  <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+                    <i class="fa-solid fa-user-pen text-eldritch-400"></i> Minha Backstory & Informações para o Grupo (${escapeHtml(char.name)})
+                  </h3>
+                  <p class="text-xs text-slate-400">
+                    Escreva aqui a história pregressa (backstory), aparência, traços marcantes e outras informações do seu personagem que os outros jogadores da mesa podem visualizar.
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="app.syncPublicBackstoryFromSheet()" title="Copiar o texto da caixa de Background da aba Notas da sua ficha"
+                    class="px-3 py-1.5 rounded-lg bg-obsidian-800 hover:bg-brass-500/20 text-brass-200 border border-brass-400/35 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-copy text-brass-400"></i> Importar Background da Ficha
+                  </button>
+                  <button onclick="app.saveMyPublicBackstory()"
+                    class="px-4 py-1.5 rounded-lg bg-brass-400 hover:bg-brass-300 text-obsidian-950 font-display font-extrabold text-xs uppercase flex items-center gap-1.5 shadow transition-all">
+                    <i class="fa-solid fa-check"></i> Salvar & Atualizar no Mural
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[10px] uppercase text-brass-300 mb-1">Frase Marcante / Lema Público ou Alcunha Conhecida</label>
+                <input id="myPublicQuoteInput" type="text"
+                  value="${escapeHtml(char.publicQuote || '')}"
+                  oninput="app.updatePublicProfileField('publicQuote', this.value)"
+                  placeholder="Ex: 'Louvado seja O Tolo!' / Consultor de História e Detetive Particular em Tingen"
+                  class="sheet-input w-full px-3.5 py-2 rounded-lg text-xs italic text-amber-200" />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div>
+                  <label class="block text-[10px] uppercase text-amber-300 font-bold mb-1">
+                    <i class="fa-solid fa-scroll mr-1"></i> Backstory do Personagem (Visível aos Outros Jogadores)
+                  </label>
+                  <textarea id="myPublicBackstoryInput" rows="5"
+                    oninput="app.updatePublicProfileField('publicBackstory', this.value)"
+                    placeholder="Conte a história conhecida do seu personagem, sua origem, profissão pública e trajetória até aqui..."
+                    class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed">${escapeHtml(char.publicBackstory ?? char.backgroundStory ?? '')}</textarea>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase text-eldritch-300 font-bold mb-1">
+                    <i class="fa-solid fa-id-card mr-1"></i> Outras Informações (Aparência, Personalidade, Curiosidades & Rumores)
+                  </label>
+                  <textarea id="myPublicInfoInput" rows="5"
+                    oninput="app.updatePublicProfileField('publicInfo', this.value)"
+                    placeholder="Descreva a aparência física, vestimentas vitorianas, hábitos, trejeitos, animais de estimação ou detalhes que o grupo percebe ao conviver com você..."
+                    class="sheet-input w-full p-3 rounded-xl text-xs text-slate-100 leading-relaxed">${escapeHtml(char.publicInfo || '')}</textarea>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Galeria de Backstories & Informações de Todos os Personagens da Campanha -->
+          <div class="space-y-3.5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-display font-bold text-base sm:text-lg text-brass-200 flex items-center gap-2">
+                <i class="fa-solid fa-masks-theater text-brass-400"></i> Backstories & Informações dos Personagens da Campanha (${partyChars.length})
+              </h3>
+              <span class="text-xs text-slate-400">Visível para todos os jogadores da mesa</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              ${partyChars.map(pc => {
+                const isMine = char && pc.id === char.id;
+                const pubBackstory = (pc.publicBackstory && pc.publicBackstory.trim())
+                  ? pc.publicBackstory
+                  : (pc.backgroundStory || 'Nenhuma backstory compartilhada ainda por este jogador.');
+                const pubInfo = (pc.publicInfo && pc.publicInfo.trim())
+                  ? pc.publicInfo
+                  : 'Nenhuma informação adicional ou descrição de aparência cadastrada ainda.';
+                const pubQuote = pc.publicQuote || pc.actingSummary || '';
+
+                return `
+                  <div class="victorian-card rounded-xl p-5 border ${isMine ? 'border-brass-400/60' : 'border-slate-800'} flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                      <div class="flex items-start gap-3.5 border-b border-slate-800 pb-3.5">
+                        ${pc.avatarUrl ? `
+                          <img src="${escapeHtml(pc.avatarUrl)}" alt="${escapeHtml(pc.name)}"
+                            onclick="app.openCharacterAvatarPreview('${pc.id}')"
+                            class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl object-cover border-2 border-brass-400/60 shrink-0 shadow-lg cursor-zoom-in" />
+                        ` : `
+                          <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-xl bg-obsidian-950 border border-brass-400/35 flex flex-col items-center justify-center text-brass-300/70 shrink-0">
+                            <i class="fa-solid fa-user-secret text-2xl"></i>
+                            <span class="text-[9px] uppercase font-display mt-1">Sem Foto</span>
+                          </div>
+                        `}
+                        <div class="min-w-0 flex-1 space-y-1">
+                          <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="px-2 py-0.5 rounded bg-eldritch-950 text-eldritch-300 border border-eldritch-500/40 text-[10px] font-display font-bold uppercase">
+                              ${escapeHtml(pc.pathway || 'Beyonder')} • ${pc.sequence === 'Humana' ? 'Humano' : `Seq. ${pc.sequence}`}
+                            </span>
+                            ${pc.organization ? `
+                              <span class="px-2 py-0.5 rounded bg-obsidian-950 text-brass-300 border border-brass-400/30 text-[10px] font-semibold">
+                                ${escapeHtml(pc.organization)}
+                              </span>
+                            ` : ''}
+                            ${isMine ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold uppercase">Seu Personagem</span>` : ''}
+                          </div>
+                          <h4 class="font-display font-bold text-lg text-brass-200 leading-tight">${escapeHtml(pc.name)}</h4>
+                          <div class="text-xs text-slate-400">
+                            <i class="fa-solid fa-user text-[10px] mr-1"></i> Jogador(a): <strong class="text-slate-200">${escapeHtml(pc.player || 'Jogador')}</strong>
+                            ${pc.potionName ? ` • Título/Poção: <span class="text-amber-200">${escapeHtml(pc.potionName)}</span>` : ''}
+                          </div>
+                          ${pubQuote ? `
+                            <blockquote class="text-xs italic text-amber-200/90 border-l-2 border-brass-400/50 pl-2.5 pt-0.5">
+                              "${escapeHtml(pubQuote)}"
+                            </blockquote>
+                          ` : ''}
+                        </div>
+                      </div>
+
+                      <div class="space-y-3">
+                        <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
+                          <div class="text-[10px] font-display font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-scroll text-amber-400"></i> Backstory & Origem do Personagem
+                          </div>
+                          <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubBackstory)}</p>
+                        </div>
+
+                        <div class="bg-obsidian-950/85 border border-slate-800/90 rounded-xl p-3.5 space-y-1">
+                          <div class="text-[10px] font-display font-bold uppercase tracking-wider text-eldritch-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-id-card text-eldritch-400"></i> Aparência, Personalidade & Outras Informações
+                          </div>
+                          <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${escapeHtml(pubInfo)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+export function renderDossiersGridCardsHtml(filteredDossiers, isGMUser = false) {
+  if (!filteredDossiers || filteredDossiers.length === 0) {
+    return `
+      <div class="victorian-card rounded-xl p-8 text-center text-xs text-slate-400">
+        Nenhum dossiê encontrado para este filtro. ${isGMUser ? 'Use o formulário acima para criar dossiês sobre Locais, Personagens e Itens com imagens!' : 'O Mestre ainda não revelou dossiês nesta categoria.'}
+      </div>
+    `;
+  }
+
+  const catMap = {};
+  DOSSIER_CATEGORIES.forEach(c => { catMap[c.key] = c; });
+
+  return `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${filteredDossiers.map(d => {
+        const catMeta = catMap[d.category] || { short: 'Dossiê', icon: 'fa-folder', badgeClass: 'bg-obsidian-900 text-brass-300 border-brass-400/40' };
+        const hasImg = Boolean(d.imageUrl && String(d.imageUrl).trim());
+        const hiddenForPlayers = d.visibleToPlayers === false;
+
+        return `
+          <div class="victorian-card rounded-xl overflow-hidden border ${hiddenForPlayers ? 'border-dashed border-crimson-500/60 opacity-75' : 'border-brass-400/35 hover:border-brass-400'} flex flex-col justify-between transition-all shadow-lg">
+            <div>
+              <!-- Imagem do Dossiê -->
+              <div class="h-44 bg-obsidian-950 relative overflow-hidden border-b border-slate-800 flex items-center justify-center group">
+                ${hasImg ? `
+                  <img src="${escapeHtml(d.imageUrl)}" alt="${escapeHtml(d.title)}"
+                    onclick="app.openDossierImageModal('${d.id}')"
+                    class="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300" />
+                  <button onclick="app.openDossierImageModal('${d.id}')" title="Ampliar imagem do dossiê"
+                    class="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 text-[10px] font-display font-bold flex items-center gap-1 border border-brass-400/40">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i> Ampliar
+                  </button>
+                ` : `
+                  <div class="flex flex-col items-center justify-center text-slate-600 gap-1.5">
+                    <i class="fa-solid ${catMeta.icon} text-3xl text-brass-400/40"></i>
+                    <span class="text-[10px] font-display uppercase tracking-wider">Sem Imagem Anexada</span>
+                  </div>
+                `}
+
+                <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-display font-extrabold uppercase border shadow ${catMeta.badgeClass}">
+                    <i class="fa-solid ${catMeta.icon} mr-1"></i>${escapeHtml(catMeta.short || catMeta.label)}
+                  </span>
+                  ${hiddenForPlayers ? `
+                    <span class="px-2 py-0.5 rounded-full bg-crimson-950 text-crimson-200 border border-crimson-500/50 text-[9px] font-bold uppercase">
+                      <i class="fa-solid fa-eye-slash mr-1"></i>Oculto p/ Jogadores
+                    </span>
+                  ` : ''}
+                </div>
+              </div>
+
+              <!-- Corpo do Dossiê -->
+              <div class="p-4 space-y-2">
+                ${d.subtitle ? `<div class="text-[10px] font-display uppercase tracking-wider text-amber-300 font-semibold">${escapeHtml(d.subtitle)}</div>` : ''}
+                <h4 class="font-display font-bold text-base text-brass-200 leading-snug">${escapeHtml(d.title || 'Dossiê')}</h4>
+                <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-line">${escapeHtml(d.description || '')}</p>
+              </div>
+            </div>
+
+            ${isGMUser ? `
+              <div class="px-4 py-2.5 bg-obsidian-950/90 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <div class="flex items-center gap-1.5">
+                  <button onclick="app.triggerDossierImageUpload('${d.id}')" title="Enviar ou trocar imagem deste dossiê"
+                    class="px-2.5 py-1 rounded bg-obsidian-800 hover:bg-brass-500/20 text-brass-200 border border-brass-400/35 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-image"></i> Foto
+                  </button>
+                  <button onclick="app.gmStartEditDossier('${d.id}')" title="Editar textos e categoria deste dossiê"
+                    class="px-2.5 py-1 rounded bg-obsidian-800 hover:bg-amber-500/20 text-amber-200 border border-amber-400/35 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-pen"></i> Editar
+                  </button>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="app.gmToggleDossierVisibility('${d.id}')"
+                    title="Revelar ou ocultar este dossiê para os jogadores"
+                    class="px-2 py-1 rounded border ${hiddenForPlayers ? 'bg-crimson-950/80 text-crimson-300 border-crimson-500/40' : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'}">
+                    <i class="fa-solid ${hiddenForPlayers ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                  </button>
+                  <button onclick="app.gmDeleteDossier('${d.id}')" title="Excluir dossiê"
+                    class="px-2 py-1 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-400 hover:text-crimson-300 border border-slate-800">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }

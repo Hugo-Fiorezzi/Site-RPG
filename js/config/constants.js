@@ -302,6 +302,121 @@ export const WEAKNESS_SEVERITIES = [
   'Restrição / Tabu Místico'
 ];
 
+export const DOSSIER_CATEGORIES = [
+  { key: 'all', label: 'Todos os Dossiês', icon: 'fa-folder-open', badgeClass: 'bg-brass-500/20 text-brass-200 border-brass-400/40' },
+  { key: 'locais', label: 'Locais & Regiões', short: 'Local', icon: 'fa-map-location-dot', badgeClass: 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' },
+  { key: 'personagens', label: 'Personagens & NPCs', short: 'Personagem', icon: 'fa-user-tie', badgeClass: 'bg-astral-950/90 text-astral-300 border-astral-500/40' },
+  { key: 'itens', label: 'Itens & Artefatos', short: 'Item / Artefato', icon: 'fa-gem', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' }
+];
+
+export const SHARED_NOTE_CATEGORIES = [
+  'Pista & Investigação',
+  'Teoria & Ocultismo',
+  'Plano do Grupo',
+  'Locais & Contatos',
+  'Anotação Geral'
+];
+
+export const DEFAULT_CAMPAIGN_DOSSIERS = [
+  {
+    id: 'dos_local_1',
+    category: 'locais',
+    title: 'Catedral de Santa Selena & Portão Chanis (Tingen)',
+    subtitle: 'Tingen • Sede Oficial dos Falcões Noturnos',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#070a14"/><stop offset="50%" stop-color="#131b2e"/><stop offset="100%" stop-color="#1e152a"/></linearGradient></defs><rect width="600" height="340" fill="url(#g1)"/><circle cx="480" cy="80" r="42" fill="#e11d48" opacity="0.75"/><circle cx="480" cy="80" r="58" fill="#e11d48" opacity="0.18"/><path d="M180 340 L180 140 L230 70 L280 140 L280 340 Z" fill="#0b0f19" stroke="#d4af37" stroke-width="2"/><path d="M260 340 L260 110 L320 40 L380 110 L380 340 Z" fill="#0f1523" stroke="#d4af37" stroke-width="2"/><circle cx="320" cy="145" r="24" fill="#1e293b" stroke="#d4af37" stroke-width="2"/><rect x="298" y="230" width="44" height="110" rx="22" fill="#05070b" stroke="#d4af37" stroke-width="2"/><text x="30" y="315" fill="#d4af37" font-family="serif" font-size="18" font-weight="bold">Catedral de Santa Selena • Portão Chanis</text></svg>`),
+    description: 'Principal templo da Deusa da Noite Eterna na cidade de Tingen. Nos níveis subterrâneos, atrás da Rua Zouteland, repousa o Portão Chanis, onde os Falcões Noturnos guardam Artefatos Selados e ingredientes Beyonder.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 86400000
+  },
+  {
+    id: 'dos_local_2',
+    category: 'locais',
+    title: 'Clube de Adivinhação de Tingen',
+    subtitle: 'Rua Howes • Ponto de Investigação e Atuação',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0d131a"/><stop offset="100%" stop-color="#1f1630"/></linearGradient></defs><rect width="600" height="340" fill="url(#g2)"/><circle cx="300" cy="155" r="78" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-dasharray="6,4"/><polygon points="300,82 320,135 375,135 330,168 348,220 300,188 252,220 270,168 225,135 280,135" fill="#d4af37" opacity="0.25" stroke="#d4af37" stroke-width="2"/><circle cx="300" cy="155" r="18" fill="#38bdf8" opacity="0.5"/><text x="30" y="315" fill="#d4af37" font-family="serif" font-size="18" font-weight="bold">Salão de Cartomancia &amp; Astrologia • Tingen</text></svg>`),
+    description: 'Frequentemente visitado por cidadãos, comerciantes e nobres em busca de leituras de tarô, astrologia e radiestesia com pêndulo. Excelente fachada para digerir a poção de Vidente e colher rumores.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 72000000
+  },
+  {
+    id: 'dos_npc_1',
+    category: 'personagens',
+    title: 'Capitão Dunn Smith',
+    subtitle: 'Líder dos Falcões Noturnos de Tingen • Caminho Sem Sono (Seq. 7 - Pesadelo)',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#090b10"/><stop offset="100%" stop-color="#1e1b2e"/></linearGradient></defs><rect width="600" height="340" fill="url(#g3)"/><circle cx="300" cy="130" r="50" fill="#1e293b" stroke="#94a3b8" stroke-width="2.5"/><path d="M215 290 C215 215 385 215 385 290 Z" fill="#0f172a" stroke="#94a3b8" stroke-width="2.5"/><circle cx="283" cy="125" r="6" fill="#cbd5e1"/><circle cx="317" cy="125" r="6" fill="#cbd5e1"/><text x="30" y="315" fill="#e2e8f0" font-family="serif" font-size="18" font-weight="bold">Capitão Dunn Smith • Olhos Cinzentos Profundos</text></svg>`),
+    description: 'Homem de sobretudo preto, linha capilar recuada e olhos cinzentos serenos. Conhecido por sua memória peculiar — frequentemente esquece detalhes secundários logo após fechar o cachimbo, mas é implacável ao proteger Tingen.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 64000000
+  },
+  {
+    id: 'dos_npc_2',
+    category: 'personagens',
+    title: 'Sr. Azik Eggers',
+    subtitle: 'Professor de História na Universidade de Tingen • Passado Enigmático',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#140f0b"/><stop offset="100%" stop-color="#291d12"/></linearGradient></defs><rect width="600" height="340" fill="url(#g4)"/><circle cx="300" cy="150" r="65" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/><path d="M260 150 Q300 95 340 150 Q300 205 260 150 Z" fill="#f59e0b" opacity="0.3" stroke="#f59e0b" stroke-width="2"/><text x="30" y="315" fill="#fbbf24" font-family="serif" font-size="18" font-weight="bold">Professor Azik Eggers • Apito de Cobre Antigo</text></svg>`),
+    description: 'Acadêmico gentil de pele bronzeada e uma pequena pinta sob a orelha direita. Perdeu parte de suas memórias antigas e possui sonhos recorrentes que atravessam eras históricas do continente.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 50000000
+  },
+  {
+    id: 'dos_item_1',
+    category: 'itens',
+    title: 'Caderno da Família Antigonus',
+    subtitle: 'Relíquia da Quarta Época • Item Místico de Alto Risco',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1a0b12"/><stop offset="100%" stop-color="#090d16"/></linearGradient></defs><rect width="600" height="340" fill="url(#g5)"/><rect x="215" y="55" width="170" height="220" rx="10" fill="#27171c" stroke="#f43f5e" stroke-width="3"/><rect x="230" y="70" width="140" height="190" rx="6" fill="none" stroke="#d4af37" stroke-width="1.5" stroke-dasharray="4,4"/><circle cx="300" cy="165" r="32" fill="none" stroke="#f43f5e" stroke-width="2"/><text x="30" y="315" fill="#fda4af" font-family="serif" font-size="18" font-weight="bold">Caderno Antigo da Família Antigonus</text></svg>`),
+    description: 'Caderno encadernado em couro escuro datado da Dinastia Tudor na Quarta Época. Todos os pesquisadores originais que o leram morreram em circunstâncias misteriosas. Atualmente buscado pela Ordem Secreta e pelos Falcões Noturnos.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 40000000
+  },
+  {
+    id: 'dos_item_2',
+    category: 'itens',
+    title: 'Artefato Selado 3-0782 (Emblema Sagrado Mutado)',
+    subtitle: 'Artefato Selado Grau 3 • Domínio do Sol Eterno',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1c1408"/><stop offset="100%" stop-color="#2e1d09"/></linearGradient></defs><rect width="600" height="340" fill="url(#g6)"/><circle cx="300" cy="160" r="68" fill="#451a03" stroke="#f59e0b" stroke-width="3"/><circle cx="300" cy="160" r="36" fill="#f59e0b" opacity="0.65"/><text x="30" y="315" fill="#fcd34d" font-family="serif" font-size="18" font-weight="bold">Artefato Selado 3-0782 • Emblema Solar</text></svg>`),
+    description: 'Emblema metálico dourado contaminado pela característica de um Beyonder do caminho do Sol. Capaz de purificar espectros e criar Água Benta do Sol, mas drena lentamente o calor corporal de quem o porta.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 30000000
+  }
+];
+
+export const DEFAULT_CAMPAIGN_UPDATES = [
+  {
+    id: 'cup_week_1',
+    weekNumber: 1,
+    title: 'Capítulo I: O Despertar sob a Lua Carmesim e o Clube de Tarô',
+    arcTag: 'Arco 1 • Mistérios de Tingen',
+    dateStr: 'Semana 1 • Abertura da Campanha',
+    content: 'Após o ritual de aumento de sorte na Rua Moretti, Klein Moretti ascendeu acima do Nevoeiro Cinza e convocou involuntariamente Audrey Hall (Srta. Justiça) e Alger Wilson (Sr. Enforcado), fundando o Clube de Tarô. Em Tingen, a investigação sobre o paradeiro do Caderno da Família Antigonus foi oficialmente iniciada pelos Falcões Noturnos.',
+    highlights: '• Fundação do Clube de Tarô acima do Nevoeiro Cinza\n• Ingresso nas investigações ocultas de Tingen\n• Primeiras pistas sobre a Ordem Secreta e o Caderno da Família Antigonus'
+  }
+];
+
+export const DEFAULT_SHARED_NOTES = [
+  {
+    id: 'snote_1',
+    authorCharId: 'sample_klein_moretti',
+    authorName: 'Klein Moretti (O Tolo)',
+    authorPlayer: 'Mestre / Exemplo',
+    category: 'Pista & Investigação',
+    title: 'Pistas sobre o Caderno da Família Antigonus',
+    content: 'Welch e Naya morreram após decifrarem trechos do caderno da Quarta Época. Qualquer pista sobre símbolos de palhaços ou menções ao Pico Hornacis deve ser compartilhada imediatamente com o grupo.',
+    weekNumber: 1,
+    dateStr: 'Semana 1'
+  },
+  {
+    id: 'snote_2',
+    authorCharId: 'sample_audrey_hall',
+    authorName: 'Audrey Hall (Srta. Justiça)',
+    authorPlayer: 'Jogadora 1 (Audrey)',
+    category: 'Locais & Contatos',
+    title: 'Círculos Místicos de Backlund e Páginas de Roselle',
+    content: 'Estou reunindo páginas escritas em caracteres secretos do Imperador Roselle e buscando contato seguro com os Alquimistas da Psicologia nos salões nobres de Backlund.',
+    weekNumber: 1,
+    dateStr: 'Semana 1'
+  }
+];
+
 export const DEFAULT_CAMPAIGN_STATE = {
   activeCampaignId: 'camp_tarot_1',
   campaigns: [
@@ -309,10 +424,17 @@ export const DEFAULT_CAMPAIGN_STATE = {
       id: 'camp_tarot_1',
       name: 'Crônicas de Tingen & Clube de Tarô',
       description: 'Investigações ocultas sob o Nevoeiro Cinza. Apenas fichas vinculadas a esta campanha participam do combate ativo e visualizam as rolagens de dados da sessão.',
+      campaignSummary: 'No Reino de Loen, entre a fumaça das máquinas a vapor, o brilho dos lampiões a gás e os mistérios herdados da Quarta Época, forças ocultas movem-se nas sombras de Tingen e Backlund. Unidos pelo encontro semanal acima do Nevoeiro Cinza e pelas investigações em solo, os membros da campanha buscam digerir suas poções sem perder a sanidade enquanto desvendam conspirações envolvendo Artefatos Selados, ordens secretas e relíquias antigas.',
+      currentObjectives: '1. Localizar o paradeiro do Caderno da Família Antigonus em Tingen.\n2. Investigar os movimentos da Ordem Secreta e da Escola Rosa.\n3. Reunir páginas do Diário de Roselle e fórmulas de Sequência 8 e 7.',
+      currentArc: 'Arco I — Sombras sobre Tingen',
+      campaignProgressPct: 25,
       currentWeek: 1,
       characterIds: ['sample_klein_moretti', 'sample_audrey_hall', 'sample_alger_wilson'],
       restrictCombatAndDice: true,
       allowFreePlayerRolls: false,
+      dossiers: JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_DOSSIERS)),
+      weeklyUpdates: JSON.parse(JSON.stringify(DEFAULT_CAMPAIGN_UPDATES)),
+      sharedNotes: JSON.parse(JSON.stringify(DEFAULT_SHARED_NOTES)),
       weekHistory: [],
       storeItems: JSON.parse(JSON.stringify(DEFAULT_STORE_ITEMS)),
       contributionTasks: JSON.parse(JSON.stringify(DEFAULT_CONTRIBUTION_TASKS)),

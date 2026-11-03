@@ -166,7 +166,30 @@
   <!-- MAIN WORKSPACE -->
   <div class="max-w-[1600px] w-full mx-auto flex-1 flex flex-col xl:flex-row gap-5 p-3 sm:p-5">
 
-    <main class="flex-1 min-w-0">
+    <main class="flex-1 min-w-0 space-y-5">
+
+      <!-- ALTERNADOR PRINCIPAL PERTO DA BARRA DE COMBATE: FICHA DO PERSONAGEM vs ABA DE CAMPANHA -->
+      <div id="mainModeSwitcherBar" class="victorian-card-gold rounded-xl p-2 sm:p-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <button id="btnMainView-sheet" onclick="app.setViewMode('sheet')" class="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-brass-400 text-obsidian-950 shadow-md">
+            <i class="fa-solid fa-scroll"></i>
+            <span>Ficha do Personagem</span>
+          </button>
+          <button id="btnMainView-campaign" onclick="app.setViewMode('campaign')" class="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-obsidian-900 hover:bg-brass-500/20 text-brass-200 border border-brass-400/35">
+            <i class="fa-solid fa-compass text-brass-400"></i>
+            <span>Aba de Campanha</span>
+            <span id="campaignHubBadge" class="px-1.5 py-0.2 rounded-full bg-obsidian-800 text-brass-300 text-[10px] font-extrabold">Dossiês & Grupo</span>
+          </button>
+          <button id="btnMainView-gm" onclick="app.setViewMode('gm')" class="hidden flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all items-center justify-center gap-2 bg-obsidian-900 hover:bg-amber-500/20 text-amber-200 border border-amber-400/35">
+            <i class="fa-solid fa-crown text-amber-400"></i>
+            <span>Painel do Mestre</span>
+          </button>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-[11px] text-slate-400 px-2">
+          <i class="fa-solid fa-book-atlas text-brass-400"></i>
+          <span>Alterne entre sua Ficha e a Campanha (Resumo, Dossiês, Progresso, Notas & Backstories)</span>
+        </div>
+      </div>
 
       <!-- MODO 1: VISÃO GERAL E CONTROLE DE CAMPANHA DO MESTRE (PROTEGIDO POR LOGIN DE MESTRE) -->
       <section id="gmDashboardView" class="hidden space-y-6">
@@ -610,6 +633,9 @@
                 <button onclick="app.switchSheetTab('combat')" id="tabBtn-combat" class="sheet-tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-gun"></i> Combate & Itens
                 </button>
+                <button onclick="app.setViewMode('campaign')" id="tabBtn-campaignSwitch" title="Alternar para a Aba de Campanha (Resumo, Dossiês, Progresso, Anotações & Backstories)" class="sheet-tab-btn flex-1 min-w-[115px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-obsidian-900/80 hover:bg-brass-500/25 text-amber-300 border border-amber-400/40">
+                  <i class="fa-solid fa-compass text-amber-400"></i> Campanha
+                </button>
                 <button onclick="app.switchSheetTab('equipped')" id="tabBtn-equipped" class="sheet-tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-lg font-display font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                   <i class="fa-solid fa-hands-holding-circle"></i> Itens Equipados
                 </button>
@@ -951,6 +977,12 @@
           </div>
         </div>
 
+      </section>
+
+      <!-- MODO 3: ABA DE CAMPANHA PARA OS JOGADORES (ALTERNANDO ENTRE FICHA E CAMPANHA) -->
+      <section id="playerCampaignView" class="hidden space-y-5">
+        <input id="dossierImageFileInput" type="file" accept="image/*" class="hidden" onchange="app.handleDossierImageUpload(event)" />
+        <div id="playerCampaignHubContainer"></div>
       </section>
     </main>
 
@@ -1606,6 +1638,25 @@
         <button onclick="app.closeDeleteCharacterModal()" class="px-4 py-2 rounded-lg bg-obsidian-800 text-slate-300 text-xs font-semibold">Cancelar</button>
         <button onclick="app.confirmDeleteCharacter()" class="px-4 py-2 rounded-lg bg-crimson-600 hover:bg-crimson-500 text-white font-bold text-xs">Sim, Excluir Ficha</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VISUALIZAR IMAGEM DO DOSSIÊ AMPLIADA -->
+  <div id="dossierImageModal" onclick="app.closeDossierImageModal()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-md p-4 cursor-zoom-out">
+    <div onclick="event.stopPropagation()" class="victorian-card-gold rounded-2xl max-w-3xl w-full p-4 sm:p-5 space-y-3 border border-brass-400/60 cursor-default">
+      <div class="flex items-center justify-between border-b border-brass-400/25 pb-2.5">
+        <div>
+          <span id="dossierModalCatSpan" class="text-[10px] font-display uppercase tracking-widest text-brass-400 block">Dossiê da Campanha</span>
+          <h3 id="dossierModalTitleH3" class="font-display font-bold text-base sm:text-lg text-brass-200">Imagem do Dossiê</h3>
+        </div>
+        <button onclick="app.closeDossierImageModal()" class="text-slate-400 hover:text-white px-2 py-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="bg-obsidian-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center max-h-[65vh]">
+        <img id="dossierModalFullImg" src="" alt="Dossiê" class="max-w-full max-h-[65vh] object-contain" />
+      </div>
+      <p id="dossierModalDescP" class="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line"></p>
     </div>
   </div>
 
