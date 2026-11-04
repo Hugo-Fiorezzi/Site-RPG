@@ -209,15 +209,18 @@ class BeyonderGrimoireController {
     const gmView = document.getElementById('gmDashboardView');
     const sheetView = document.getElementById('characterSheetView');
     const campView = document.getElementById('playerCampaignView');
+    const storeView = document.getElementById('playerStoreView');
 
     if (this.viewMode === 'gm' && this.isGMUser()) {
       gmView?.classList.remove('hidden');
       sheetView?.classList.add('hidden');
       campView?.classList.add('hidden');
+      storeView?.classList.add('hidden');
       renderGMDashboard(this.charactersMap, this.campaignState, this.activeGMSubTab, this.currentUser);
     } else if (this.viewMode === 'campaign') {
       gmView?.classList.add('hidden');
       sheetView?.classList.add('hidden');
+      storeView?.classList.add('hidden');
       campView?.classList.remove('hidden');
       renderPlayerCampaignHub(
         this.getActiveChar(),
@@ -227,9 +230,22 @@ class BeyonderGrimoireController {
         this.campaignHubState,
         false
       );
+    } else if (this.viewMode === 'store') {
+      gmView?.classList.add('hidden');
+      sheetView?.classList.add('hidden');
+      campView?.classList.add('hidden');
+      storeView?.classList.remove('hidden');
+      renderCampaignStoreTab(
+        this.getActiveChar(),
+        this.campaignState,
+        this.currentUser,
+        this.storeUIState,
+        true
+      );
     } else {
       gmView?.classList.add('hidden');
       campView?.classList.add('hidden');
+      storeView?.classList.add('hidden');
       sheetView?.classList.remove('hidden');
       renderCharacterSheet(
         this.getActiveChar(),

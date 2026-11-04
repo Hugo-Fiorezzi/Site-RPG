@@ -610,6 +610,7 @@ export function renderTopNavigation(charactersMap, activeCharacterId, viewMode, 
   // Atualiza barra alternadora principal (Ficha do Personagem vs Aba de Campanha vs Painel do Mestre)
   const btnMainSheet = document.getElementById('btnMainView-sheet');
   const btnMainCamp = document.getElementById('btnMainView-campaign');
+  const btnMainStore = document.getElementById('btnMainView-store');
   const btnMainGM = document.getElementById('btnMainView-gm');
   const campBadge = document.getElementById('campaignHubBadge');
 
@@ -626,6 +627,11 @@ export function renderTopNavigation(charactersMap, activeCharacterId, viewMode, 
   }
   if (btnMainCamp) {
     btnMainCamp.className = viewMode === 'campaign' ? activeMainClass : inactiveMainClass;
+  }
+  if (btnMainStore) {
+    btnMainStore.className = viewMode === 'store'
+      ? activeMainClass
+      : 'flex-1 sm:flex-initial px-4 py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 bg-obsidian-900 hover:bg-emerald-500/20 text-emerald-200 border border-emerald-400/35';
   }
   if (btnMainGM) {
     if (!isGMUser) {
@@ -785,35 +791,23 @@ function renderGMCharactersOverviewGrid(charactersMap, campaignState) {
                 <span><i class="fa-solid fa-coins text-amber-400 mr-1"></i> Dinheiro da Ficha (Alterar Direto)</span>
               </div>
               <div class="grid grid-cols-3 gap-1.5 text-center">
-                <div class="bg-obsidian-900 border border-amber-500/30 rounded p-1">
+                <div class="bg-obsidian-900 border border-amber-500/30 rounded p-1.5">
                   <div class="text-[9px] text-amber-300 font-bold mb-0.5">Libras (£)</div>
-                  <div class="flex items-center justify-center gap-0.5">
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyGold', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
-                    <input type="number" value="${ch.currencyGold ?? 0}"
-                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyGold', Number(this.value))"
-                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-extrabold text-amber-200" />
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyGold', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
-                  </div>
+                  <input type="number" value="${ch.currencyGold ?? 0}"
+                    onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyGold', Number(this.value))"
+                    class="sheet-input w-full text-center py-0.5 rounded text-xs font-extrabold text-amber-200" />
                 </div>
-                <div class="bg-obsidian-900 border border-slate-700 rounded p-1">
+                <div class="bg-obsidian-900 border border-slate-700 rounded p-1.5">
                   <div class="text-[9px] text-slate-300 font-bold mb-0.5">Soli (Prata)</div>
-                  <div class="flex items-center justify-center gap-0.5">
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencySoli', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
-                    <input type="number" value="${ch.currencySoli ?? 0}"
-                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencySoli', Number(this.value))"
-                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-bold text-slate-200" />
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencySoli', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
-                  </div>
+                  <input type="number" value="${ch.currencySoli ?? 0}"
+                    onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencySoli', Number(this.value))"
+                    class="sheet-input w-full text-center py-0.5 rounded text-xs font-bold text-slate-200" />
                 </div>
-                <div class="bg-obsidian-900 border border-amber-700/40 rounded p-1">
+                <div class="bg-obsidian-900 border border-amber-700/40 rounded p-1.5">
                   <div class="text-[9px] text-amber-500 font-bold mb-0.5">Pennies</div>
-                  <div class="flex items-center justify-center gap-0.5">
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyPenny', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
-                    <input type="number" value="${ch.currencyPenny ?? 0}"
-                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyPenny', Number(this.value))"
-                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-bold text-amber-400" />
-                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyPenny', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
-                  </div>
+                  <input type="number" value="${ch.currencyPenny ?? 0}"
+                    onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyPenny', Number(this.value))"
+                    class="sheet-input w-full text-center py-0.5 rounded text-xs font-bold text-amber-400" />
                 </div>
               </div>
             </div>
@@ -3317,9 +3311,18 @@ export function renderGMStoreManager(charactersMap, campaignState, forceRebuild 
 }
 
 export function renderCampaignStoreTab(char, campaignState, currentUser, storeUIState = null, forceRebuild = false) {
-  const container = document.getElementById('campaignStoreTabContainer');
-  if (!container || !char) return;
-  if (!forceRebuild && isUserTypingInContainer(container)) return;
+  const containers = [
+    document.getElementById('playerMainStoreContainer'),
+    document.getElementById('campaignStoreTabContainer')
+  ].filter(Boolean);
+  if (containers.length === 0) return;
+  if (!forceRebuild && containers.some(c => isUserTypingInContainer(c))) return;
+  if (!char) {
+    containers.forEach(c => {
+      c.innerHTML = `<div class="victorian-card-gold rounded-xl p-8 text-center text-xs text-slate-400">Crie ou selecione uma ficha de personagem para acessar a Loja da Campanha e suas Contribuições.</div>`;
+    });
+    return;
+  }
 
   const isGMUser = currentUser?.role === 'gm';
   const ui = storeUIState || { subTab: 'items', categoryFilter: 'all', searchText: '' };
@@ -3355,7 +3358,7 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
   const catMetaMap = {};
   STORE_ITEM_CATEGORIES.forEach(c => { catMetaMap[c.key] = c; });
 
-  container.innerHTML = `
+  const storeHtml = `
     <div class="space-y-4">
       <!-- CABEÇALHO DA LOJA DA CAMPANHA NAS FICHAS -->
       <div class="victorian-card-gold rounded-xl p-4 sm:p-5 space-y-4">
@@ -3369,8 +3372,11 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
             </h3>
           </div>
 
-          <!-- Saldos Atuais da Ficha Selecionada + Atalho para o Mestre Editar no Painel do Mestre -->
+          <!-- Saldos Atuais da Ficha Selecionada + Atalhos de Navegação -->
           <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="app.setViewMode('sheet')" class="px-3.5 py-1.5 rounded-lg bg-obsidian-800 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
+              <i class="fa-solid fa-scroll"></i> Voltar para Minha Ficha
+            </button>
             ${isGMUser ? `
               <button onclick="app.openGMStoreManager()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-400 text-amber-200 hover:text-obsidian-950 border border-amber-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
                 <i class="fa-solid fa-crown"></i> Editar Loja no Painel do Mestre
@@ -3585,6 +3591,7 @@ export function renderCampaignStoreTab(char, campaignState, currentUser, storeUI
       `}
     </div>
   `;
+  containers.forEach(c => { c.innerHTML = storeHtml; });
 }
 
 
