@@ -26,198 +26,59 @@ export function createDefaultCharacter(overrides = {}) {
     ownerEmail: overrides.ownerEmail || '',
     name: overrides.name || 'Novo Beyonder',
     player: overrides.player || 'Jogador',
-    organization: overrides.organization || 'Independente',
+    organization: overrides.organization ?? '',
     pathway: overrides.pathway || 'Vidente (Tolo)',
     sequence: overrides.sequence || '9',
-    potionName: overrides.potionName || 'Vidente',
-    potionProgress: overrides.potionProgress ?? 15,
-    actingSummary: overrides.actingSummary || 'Apenas atue como o papel da poção sem perder a si mesmo.',
-    armorClass: overrides.armorClass ?? 13,
+    potionName: overrides.potionName ?? '',
+    potionProgress: overrides.potionProgress ?? 0,
+    actingSummary: overrides.actingSummary ?? '',
+    armorClass: overrides.armorClass ?? 12,
     proficiencyBonus: overrides.proficiencyBonus ?? 2,
-    bonusDie: overrides.bonusDie ?? '1d4',
+    bonusDie: overrides.bonusDie ?? '',
     autoBonusDie: overrides.autoBonusDie ?? false,
-    corruptionLevel: overrides.corruptionLevel ?? 5,
+    corruptionLevel: overrides.corruptionLevel ?? 0,
     avatarUrl: overrides.avatarUrl || '',
-    contributionPoints: overrides.contributionPoints ?? 80,
-    currencyGold: overrides.currencyGold ?? 12,
-    currencySoli: overrides.currencySoli ?? 8,
-    currencyPenny: overrides.currencyPenny ?? 4,
+    contributionPoints: overrides.contributionPoints ?? 0,
+    currencyGold: overrides.currencyGold ?? 0,
+    currencySoli: overrides.currencySoli ?? 0,
+    currencyPenny: overrides.currencyPenny ?? 0,
+    totalAmmoReserve: overrides.totalAmmoReserve ?? 0,
+    ammoNotes: overrides.ammoNotes ?? '',
     turnActions: overrides.turnActions || { ...DEFAULT_TURN_ACTIONS },
-    activePassives: overrides.activePassives || [
-      {
-        id: 'pas_visao_espiritual',
-        name: 'Visão Espiritual (Spirit Vision)',
-        cost: 1,
-        icon: 'fa-eye',
-        description: 'Enxerga auras emocionais, saúde, fluxos de espiritualidade e corpos etéreos.',
-        activatedAt: 'Ativa'
-      }
-    ],
+    activePassives: Array.isArray(overrides.activePassives) ? [...overrides.activePassives] : [],
     vitals: overrides.vitals || {
-      hp: { current: 24, max: 24, temp: 0 },
-      sp: { current: 30, max: 30, temp: 0 },
-      san: { current: 85, max: 100, temp: 0 }
+      hp: { current: 20, max: 20, temp: 0 },
+      sp: { current: 20, max: 20, temp: 0 },
+      san: { current: 100, max: 100, temp: 0 }
     },
     attributes: overrides.attributes || {
       for: { value: 10, bonus: 0 },
-      agi: { value: 14, bonus: 0 },
-      con: { value: 12, bonus: 0 },
-      int: { value: 16, bonus: 0 },
-      sab: { value: 15, bonus: 0 },
-      car: { value: 13, bonus: 0 }
+      agi: { value: 10, bonus: 0 },
+      con: { value: 10, bonus: 0 },
+      int: { value: 10, bonus: 0 },
+      sab: { value: 10, bonus: 0 },
+      car: { value: 10, bonus: 0 }
     },
     savingThrows: overrides.savingThrows || defaultSaves,
     skills: overrides.skills || defaultSkills,
-    combatStyles: overrides.combatStyles || [
-      {
-        id: 'cs1',
-        name: 'Tiro Tático & Mobilidade de Palhaço',
-        styleType: 'Armas de Fogo & Pontaria',
-        bonusText: '+1 em Pontaria e Esquiva Acrobática',
-        isActive: true,
-        description: 'Combina disparos precisos de revólver à média distância com deslocamento imprevisível e uso de Substitutos de Papel.'
-      }
-    ],
-    standardProficiencies: overrides.standardProficiencies || {
-      armas_simples: true,
-      armas_fogo_curtas: true,
-      armaduras_leves: true,
-      amuletos_talismas: true,
-      instrumentos_adivinhacao: true
-    },
-    proficienciesList: overrides.proficienciesList || [
-      {
-        id: 'prf1',
-        name: 'Revólveres de Caça-Demônios & Munições Místicas',
-        category: 'Arma',
-        level: 'Especialista (+Bônus)',
-        notes: 'Treinamento formal no estande subterrâneo dos Falcões Noturnos.'
-      },
-      {
-        id: 'prf2',
-        name: 'Bengala com Lâmina Oculta & Combate Urbano',
-        category: 'Arma',
-        level: 'Proficiente',
-        notes: 'Saque rápido e defesa em curta distância.'
-      }
-    ],
-    weapons: overrides.weapons || [
-      {
-        id: 'w1',
-        name: 'Revólver de Cano Longo (Balas de Caça-Demônios)',
-        attackBonus: 5,
-        damage: '1d8+2',
-        type: 'Perfurante / Purificador • 24m',
-        actionType: 'padrao',
-        equipSlot: 'mao_direita',
-        isFirearm: true,
-        ammoCurrent: 5,
-        ammoMax: 6
-      },
-      {
-        id: 'w2',
-        name: 'Bengala com Lâmina Oculta',
-        attackBonus: 4,
-        damage: '1d6+2',
-        type: 'Cortante • Corpo a Corpo',
-        actionType: 'padrao',
-        equipSlot: 'mao_esquerda',
-        isFirearm: false,
-        ammoCurrent: 0,
-        ammoMax: 0
-      }
-    ],
-    equipment: overrides.equipment || [
-      {
-        id: 'eq1',
-        name: 'Artefato Selado 3-0782 (Emblema Sagrado Mutado)',
-        category: 'Artefato Selado Grau 3',
-        quantity: 1,
-        description: 'Purifica mortos-vivos num raio de 10m. Efeito Negativo: Suga lentamente o calor corporal do portador após 15 minutos.'
-      },
-      {
-        id: 'eq2',
-        name: 'Pêndulo de Topázio na Corrente de Prata',
-        category: 'Instrumento Místico',
-        quantity: 1,
-        description: 'Ferramenta essencial para Radiestesia Espiritual (horário = sim, anti-horário = não).'
-      }
-    ],
-    powers: overrides.powers || [
-      {
-        id: 'p1',
-        name: 'Visão Espiritual (Spirit Vision)',
-        sequence: 'Seq. 9 - Vidente',
-        cost: 1,
-        actionType: 'bonus',
-        description: 'Permite enxergar corpos etéreos, cores emocionais das auras, saúde e fluxos de espiritualidade.'
-      },
-      {
-        id: 'p2',
-        name: 'Substituto de Papel (Paper Figurine)',
-        sequence: 'Seq. 8 - Palhaço',
-        cost: 4,
-        actionType: 'oportunidade',
-        description: 'Troca de lugar instantaneamente com um boneco de papel preparado, anulando um ataque letal.'
-      }
-    ],
-    spells: overrides.spells || [
-      {
-        id: 'sp1',
-        name: 'Amuleto do Sono / Requiem',
-        level: 'Amuleto Místico',
-        cost: 2,
-        actionType: 'padrao',
-        castTime: 'Ação Padrão (Infusão de PE)',
-        description: 'Infunde espiritualidade e recita o termo em Hermes Antigo para lançar o amuleto contra o alvo.'
-      },
-      {
-        id: 'sp2',
-        name: 'Passo Flamejante (Flaming Jump)',
-        level: 'Feitiço de Sequência',
-        cost: 3,
-        actionType: 'movimento',
-        castTime: 'Ação de Movimento',
-        description: 'Teleporta-se instantaneamente entre chamas num raio de até 30 metros.'
-      }
-    ],
-    mutations: overrides.mutations || [
-      {
-        id: 'm1',
-        name: 'Sussurros do Nevoeiro Cinza',
-        type: 'Mental / Espiritual',
-        severity: 'Leve',
-        description: 'Ao usar a Visão Espiritual por muito tempo ou avançar de sequência, escuta murmúrios indescritíveis e vê sombras distorcidas.'
-      }
-    ],
-    resistances: overrides.resistances || [
-      {
-        id: 'res1',
-        name: 'Intrusão Espiritual & Adivinhação Maligna',
-        degree: 'Resistência Elevada (50% Dano)',
-        value: '+3 em Vontade / Anti-Rastreio',
-        source: 'Bênção do Nevoeiro Cinza',
-        description: 'A aura do Nevoeiro Cinza bloqueia tentativas de rastreamento místico e reduz efeitos mentais de sussurros externos.'
-      }
-    ],
-    weaknesses: overrides.weaknesses || [
-      {
-        id: 'wk1',
-        name: 'Drenagem Térmica do Artefato 3-0782',
-        severity: 'Penalidade em Testes',
-        penalty: '-2 em CON após 15 min de uso',
-        source: 'Efeito Negativo de Artefato',
-        description: 'Portar o Emblema Sagrado Mutado sem isolamento espiritual reduz gradualmente a temperatura corporal e a agilidade.'
-      }
-    ],
-    actingNotes: overrides.actingNotes || '• Você apenas atua no papel da poção; o nome da poção é a chave.\n• Um Vidente respeita o destino, mas nunca se submete passivamente a ele.\n• Um Palhaço sorri diante do absurdo do destino, mantendo o controle absoluto do corpo e das expressões.',
-    anchors: overrides.anchors || 'Benson e Melissa Moretti (irmãos), memórias de sua terra natal e os membros do Clube de Tarô.',
-    backgroundStory: overrides.backgroundStory || 'Graduado em História pela Universidade de Khoy, vive com seus irmãos Benson e Melissa em Tingen após sobreviver a um incidente oculto envolvendo o caderno da Família Antigonus.',
+    combatStyles: Array.isArray(overrides.combatStyles) ? [...overrides.combatStyles] : [],
+    standardProficiencies: overrides.standardProficiencies ? { ...overrides.standardProficiencies } : {},
+    proficienciesList: Array.isArray(overrides.proficienciesList) ? [...overrides.proficienciesList] : [],
+    weapons: Array.isArray(overrides.weapons) ? [...overrides.weapons] : [],
+    equipment: Array.isArray(overrides.equipment) ? [...overrides.equipment] : [],
+    powers: Array.isArray(overrides.powers) ? [...overrides.powers] : [],
+    spells: Array.isArray(overrides.spells) ? [...overrides.spells] : [],
+    mutations: Array.isArray(overrides.mutations) ? [...overrides.mutations] : [],
+    resistances: Array.isArray(overrides.resistances) ? [...overrides.resistances] : [],
+    weaknesses: Array.isArray(overrides.weaknesses) ? [...overrides.weaknesses] : [],
+    actingNotes: overrides.actingNotes ?? '',
+    anchors: overrides.anchors ?? '',
+    backgroundStory: overrides.backgroundStory ?? '',
     shareBackstory: overrides.shareBackstory ?? false,
     publicBackstory: overrides.publicBackstory ?? '',
     publicInfo: overrides.publicInfo ?? '',
     publicQuote: overrides.publicQuote ?? '',
-    backstory: overrides.backstory || 'Anotações de investigação da campanha, pistas descobertas nas sessões e fórmulas de poções.',
+    backstory: overrides.backstory ?? '',
     weeklyDowntime: overrides.weeklyDowntime || createDefaultWeeklyDowntime(1),
     downtimeHistory: overrides.downtimeHistory || [],
     sequenceSummaries: overrides.sequenceSummaries || [],
@@ -263,9 +124,18 @@ export function getSampleCharactersList() {
     sequence: '8',
     potionName: 'Palhaço',
     potionProgress: 65,
+    actingSummary: 'Apenas atue como o papel da poção sem perder a si mesmo.',
     armorClass: 15,
     proficiencyBonus: 3,
     bonusDie: '1d6',
+    corruptionLevel: 5,
+    contributionPoints: 80,
+    currencyGold: 12,
+    currencySoli: 8,
+    currencyPenny: 4,
+    totalAmmoReserve: 24,
+    ammoNotes: '18x Balas de Caça-Demônios, 6x Balas Purificadoras do Sol',
+    activePassives: [],
     vitals: {
       hp: { current: 26, max: 32, temp: 0 },
       sp: { current: 35, max: 50, temp: 0 },
@@ -279,6 +149,152 @@ export function getSampleCharactersList() {
       sab: { value: 16, bonus: 0 },
       car: { value: 14, bonus: 0 }
     },
+    combatStyles: [
+      {
+        id: 'cs1',
+        name: 'Tiro Tático & Mobilidade de Palhaço',
+        styleType: 'Armas de Fogo & Pontaria',
+        bonusText: '+1 em Pontaria e Esquiva Acrobática',
+        isActive: true,
+        description: 'Combina disparos precisos de revólver à média distância com deslocamento imprevisível e uso de Substitutos de Papel.'
+      }
+    ],
+    standardProficiencies: {
+      armas_simples: true,
+      armas_fogo_curtas: true,
+      armaduras_leves: true,
+      amuletos_talismas: true,
+      instrumentos_adivinhacao: true
+    },
+    proficienciesList: [
+      {
+        id: 'prf1',
+        name: 'Revólveres de Caça-Demônios & Munições Místicas',
+        category: 'Arma',
+        level: 'Especialista (+Bônus)',
+        notes: 'Treinamento formal no estande subterrâneo dos Falcões Noturnos.'
+      },
+      {
+        id: 'prf2',
+        name: 'Bengala com Lâmina Oculta & Combate Urbano',
+        category: 'Arma',
+        level: 'Proficiente',
+        notes: 'Saque rápido e defesa em curta distância.'
+      }
+    ],
+    weapons: [
+      {
+        id: 'w1',
+        name: 'Revólver de Cano Longo (Balas de Caça-Demônios)',
+        attackBonus: 5,
+        damage: '1d8+2',
+        type: 'Perfurante / Purificador • 24m',
+        actionType: 'padrao',
+        equipSlot: 'mao_direita',
+        isFirearm: true,
+        ammoCurrent: 5,
+        ammoMax: 6
+      },
+      {
+        id: 'w2',
+        name: 'Bengala com Lâmina Oculta',
+        attackBonus: 4,
+        damage: '1d6+2',
+        type: 'Cortante • Corpo a Corpo',
+        actionType: 'padrao',
+        equipSlot: 'mao_esquerda',
+        isFirearm: false,
+        ammoCurrent: 0,
+        ammoMax: 0
+      }
+    ],
+    equipment: [
+      {
+        id: 'eq1',
+        name: 'Artefato Selado 3-0782 (Emblema Sagrado Mutado)',
+        category: 'Artefato Selado Grau 3',
+        quantity: 1,
+        description: 'Purifica mortos-vivos num raio de 10m. Efeito Negativo: Suga lentamente o calor corporal do portador após 15 minutos.'
+      },
+      {
+        id: 'eq2',
+        name: 'Pêndulo de Topázio na Corrente de Prata',
+        category: 'Instrumento Místico',
+        quantity: 1,
+        description: 'Ferramenta essencial para Radiestesia Espiritual (horário = sim, anti-horário = não).'
+      }
+    ],
+    powers: [
+      {
+        id: 'p1',
+        name: 'Visão Espiritual (Spirit Vision)',
+        sequence: 'Seq. 9 - Vidente',
+        cost: 1,
+        actionType: 'bonus',
+        description: 'Permite enxergar corpos etéreos, cores emocionais das auras, saúde e fluxos de espiritualidade.'
+      },
+      {
+        id: 'p2',
+        name: 'Substituto de Papel (Paper Figurine)',
+        sequence: 'Seq. 8 - Palhaço',
+        cost: 4,
+        actionType: 'oportunidade',
+        description: 'Troca de lugar instantaneamente com um boneco de papel preparado, anulando um ataque letal.'
+      }
+    ],
+    spells: [
+      {
+        id: 'sp1',
+        name: 'Amuleto do Sono / Requiem',
+        level: 'Amuleto Místico',
+        cost: 2,
+        actionType: 'padrao',
+        castTime: 'Ação Padrão (Infusão de PE)',
+        description: 'Infunde espiritualidade e recita o termo em Hermes Antigo para lançar o amuleto contra o alvo.'
+      },
+      {
+        id: 'sp2',
+        name: 'Passo Flamejante (Flaming Jump)',
+        level: 'Feitiço de Sequência',
+        cost: 3,
+        actionType: 'movimento',
+        castTime: 'Ação de Movimento',
+        description: 'Teleporta-se instantaneamente entre chamas num raio de até 30 metros.'
+      }
+    ],
+    mutations: [
+      {
+        id: 'm1',
+        name: 'Sussurros do Nevoeiro Cinza',
+        type: 'Mental / Espiritual',
+        severity: 'Leve',
+        description: 'Ao usar a Visão Espiritual por muito tempo ou avançar de sequência, escuta murmúrios indescritíveis e vê sombras distorcidas.'
+      }
+    ],
+    resistances: [
+      {
+        id: 'res1',
+        name: 'Intrusão Espiritual & Adivinhação Maligna',
+        degree: 'Resistência Elevada (50% Dano)',
+        value: '+3 em Vontade / Anti-Rastreio',
+        source: 'Bênção do Nevoeiro Cinza',
+        description: 'A aura do Nevoeiro Cinza bloqueia tentativas de rastreamento místico e reduz efeitos mentais de sussurros externos.'
+      }
+    ],
+    weaknesses: [
+      {
+        id: 'wk1',
+        name: 'Drenagem Térmica do Artefato 3-0782',
+        severity: 'Penalidade em Testes',
+        penalty: '-2 em CON após 15 min de uso',
+        source: 'Efeito Negativo de Artefato',
+        description: 'Portar o Emblema Sagrado Mutado sem isolamento espiritual reduz gradualmente a temperatura corporal e a agilidade.'
+      }
+    ],
+    actingNotes: '• Você apenas atua no papel da poção; o nome da poção é a chave.\n• Um Vidente respeita o destino, mas nunca se submete passivamente a ele.\n• Um Palhaço sorri diante do absurdo do destino, mantendo o controle absoluto do corpo e das expressões.',
+    anchors: 'Benson e Melissa Moretti (irmãos), memórias de sua terra natal e os membros do Clube de Tarô.',
+    backgroundStory: 'Graduado em História pela Universidade de Khoy, vive com seus irmãos Benson e Melissa em Tingen após sobreviver a um incidente oculto envolvendo o caderno da Família Antigonus.',
+    backstory: 'Anotações de investigação da campanha, pistas descobertas nas sessões e fórmulas de poções.',
     weeklyDowntime: kleinDowntime,
     sequenceSummaries: [
       {
@@ -333,9 +349,7 @@ export function getSampleCharactersList() {
     bonusDie: '1d6',
     corruptionLevel: 2,
     currencyGold: 500,
-    publicBackstory: 'Filha mais nova do Conde Hall em Backlund, apaixonada por misticismo, filantropia e bailes da alta sociedade. Conhecida no Clube de Tarô como Srta. Justiça.',
-    publicInfo: 'Jovem nobre de cabelos loiros deslumbrantes e olhos verdes esmeralda, sempre acompanhada por sua golden retriever Susie. Observadora atenta de microexpressões.',
-    publicQuote: 'Boa tarde, Sr. Tolo~',
+    activePassives: [],
     vitals: {
       hp: { current: 24, max: 28, temp: 0 },
       sp: { current: 45, max: 55, temp: 0 },
@@ -413,9 +427,7 @@ export function getSampleCharactersList() {
     proficiencyBonus: 3,
     bonusDie: '1d6',
     corruptionLevel: 12,
-    publicBackstory: 'Capitão do navio fantasma Vingador Azul e membro experiente da Igreja do Senhor das Tempestades. Navega pelo Mar Sônia em busca de poder e artefatos.',
-    publicInfo: 'Marinheiro calejado de barba espessa, manto bordado com símbolos de raios e postura cautelosa e pragmática. Conhecido no Clube de Tarô como Sr. Enforcado.',
-    publicQuote: 'No mar e no mundo oculto, a cautela mantém você vivo.',
+    activePassives: [],
     vitals: {
       hp: { current: 38, max: 44, temp: 0 },
       sp: { current: 30, max: 40, temp: 0 },

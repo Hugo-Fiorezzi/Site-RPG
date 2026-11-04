@@ -1972,11 +1972,42 @@ class BeyonderGrimoireController {
     this.scheduleAutoSave();
   }
 
+  adjustTotalAmmoReserve(delta) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    char.totalAmmoReserve = Math.max(0, (Number(char.totalAmmoReserve) || 0) + Number(delta || 0));
+    this.renderSpecificCollection(char, 'weapons', true);
+    this.scheduleAutoSave();
+  }
+
+  setTotalAmmoReserve(val) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    char.totalAmmoReserve = Math.max(0, Number(val) || 0);
+    this.renderSpecificCollection(char, 'weapons', true);
+    this.scheduleAutoSave();
+  }
+
   reloadWeapon(idx) {
     const char = this.getActiveChar();
     const w = char?.weapons?.[idx];
     if (!w) return;
-    w.ammoCurrent = Math.max(1, Number(w.ammoMax ?? 6));
+    const max = Math.max(1, Number(w.ammoMax ?? 6));
+    const cur = Math.max(0, Number(w.ammoCurrent ?? 0));
+    const needed = Math.max(0, max - cur);
+    const reserve = Math.max(0, Number(char.totalAmmoReserve ?? 0));
+
+    if (needed > 0 && reserve > 0) {
+      const taken = Math.min(needed, reserve);
+      w.ammoCurrent = cur + taken;
+      char.totalAmmoReserve = reserve - taken;
+      this.renderSpecificCollection(char, 'weapons', true);
+      this.scheduleAutoSave();
+      showToast(`${w.name} recarregada (+${taken} projéteis • Reserva restante: ${char.totalAmmoReserve})!`);
+      return;
+    }
+
+    w.ammoCurrent = max;
     this.renderSpecificCollection(char, 'weapons', true);
     this.scheduleAutoSave();
     showToast(`${w.name} recarregada (${w.ammoCurrent}/${w.ammoMax})!`);
@@ -2015,7 +2046,6 @@ class BeyonderGrimoireController {
 
     this.publishRoll({
       characterId: char.id,
-      campaignId: this.getActiveCampaign()?.id || null,
       characterName: char.name,
       title: `${isPower ? 'Poder' : 'Magia/Ritual'}: ${item.name}`,
       subtitle: `${actionMeta.label} • Gastou ${cost} PE`,
@@ -2050,10 +2080,30 @@ class BeyonderGrimoireController {
 
   async publishRoll(rollEntry) {
     const char = this.getActiveChar();
+    const charId = rollEntry.characterId ?? (char ? char.id : null);
+    const activeCamp = this.getActiveCampaign();
+    const isGM = this.isGMUser();
+    const charInActiveCamp = Boolean(
+      activeCamp && Array.isArray(activeCamp.characterIds) && charId && activeCamp.characterIds.includes(charId)
+    );
+
+    // Se a campanha restringir combate/dados e o jogador não estiver escalado nela, não envia o dado para a mesa!
+    if (!isGM && activeCamp && activeCamp.restrictCombatAndDice !== false && !charInActiveCamp) {
+      showToast('Sua ficha não está escalada na campanha ativa. Rolagem bloqueada na mesa.', 'error');
+      return;
+    }
+
+    const matchedCamp = (this.campaignState?.campaigns || []).find(
+      c => Array.isArray(c.characterIds) && charId && c.characterIds.includes(charId)
+    );
+    const resolvedCampaignId = charInActiveCamp
+      ? activeCamp.id
+      : (isGM && !charId ? (activeCamp?.id || null) : (matchedCamp?.id || null));
+
     const enriched = {
-      characterId: rollEntry.characterId ?? (char ? char.id : null),
-      campaignId: rollEntry.campaignId ?? (this.getActiveCampaign()?.id || null),
-      ...rollEntry
+      ...rollEntry,
+      characterId: charId,
+      campaignId: resolvedCampaignId
     };
     this.diceLogs = await this.storage.publishDiceLog(enriched, this.diceLogs);
     renderDiceLogs(this.diceLogs, this.campaignState, this.activeCharacterId, this.viewMode, this.currentUser);
@@ -2061,8 +2111,14 @@ class BeyonderGrimoireController {
 
   canPlayerRollFreeDice(matchingTestKey = null) {
     if (this.isGMUser()) return { allowed: true };
-    if (this.combatState && this.combatState.isActive) return { allowed: true };
     const camp = this.getActiveCampaign();
+    if (camp && camp.restrictCombatAndDice !== false) {
+      const inCamp = Boolean(this.activeCharacterId && Array.isArray(camp.characterIds) && camp.characterIds.includes(this.activeCharacterId));
+      if (!inCamp) {
+        return { allowed: false, outsideCampaign: true };
+      }
+    }
+    if (this.combatState && this.combatState.isActive) return { allowed: true };
     if (camp && camp.allowFreePlayerRolls === true) return { allowed: true };
 
     // Verifica se o jogador possui algum teste solicitado pelo Mestre pendente (ou com rejogar liberado) na semana
@@ -2691,6 +2747,57 @@ class BeyonderGrimoireController {
     renderOraclePassivesSection(char, this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
     await this.storage.saveCharacter(char, this.charactersMap);
     if (removed) showToast(`Passiva "${removed.name}" desativada.`);
+  }
+
+  async gmDeactivatePlayerPassive(charId, passiveIdx) {
+    const targetChar = this.charactersMap[charId];
+    const activeChar = this.getActiveChar();
+    if (!targetChar || !Array.isArray(targetChar.activePassives)) return;
+
+    const canControl = this.isGMUser() || (activeChar && activeChar.id === targetChar.id);
+    if (!canControl) {
+      showToast('Apenas o Mestre ou o dono da ficha pode desligar esta passiva.', 'error');
+      return;
+    }
+
+    const removed = targetChar.activePassives.splice(passiveIdx, 1)[0];
+    targetChar.updatedAt = Date.now();
+    this.renderAll();
+    renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(targetChar, this.charactersMap);
+    if (removed) {
+      showToast(`Passiva "${removed.name}" de ${targetChar.name} desligada!`);
+    }
+  }
+
+  async gmDeactivateAllPassivesForChar(charId) {
+    if (!this.isGMUser()) return;
+    const targetChar = this.charactersMap[charId];
+    if (!targetChar) return;
+    targetChar.activePassives = [];
+    targetChar.updatedAt = Date.now();
+    this.renderAll();
+    renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    await this.storage.saveCharacter(targetChar, this.charactersMap);
+    showToast(`Todas as passivas de ${targetChar.name} foram desligadas pelo Mestre.`);
+  }
+
+  async gmClearAllActivePassives() {
+    if (!this.isGMUser()) {
+      showToast('Apenas o Mestre pode desligar todas as passivas da mesa de uma vez.', 'error');
+      return;
+    }
+    const allChars = Object.values(this.charactersMap || {});
+    for (const ch of allChars) {
+      if (Array.isArray(ch.activePassives) && ch.activePassives.length > 0) {
+        ch.activePassives = [];
+        ch.updatedAt = Date.now();
+        await this.storage.saveCharacter(ch, this.charactersMap);
+      }
+    }
+    this.renderAll();
+    renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, true);
+    showToast('Todas as passivas ativas da mesa foram desligadas pelo Mestre!');
   }
 
   async spendPassiveMaintenancePE(passiveIdx) {

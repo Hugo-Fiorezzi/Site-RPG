@@ -35,7 +35,7 @@ export const ACTION_TYPES = [
 
 export const PASSIVE_ABILITY_PRESETS = [
   {
-    id: 'preset_visao_espiritual',
+    id: 'preset_visao_espiritual', legacyPassiveId: { id: 'pas_visao_espiritual' },
     name: 'Visão Espiritual (Spirit Vision)',
     cost: 1,
     icon: 'fa-eye',

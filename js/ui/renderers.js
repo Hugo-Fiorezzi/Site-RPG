@@ -755,6 +755,7 @@ function renderGMCharactersOverviewGrid(charactersMap, campaignState) {
                 <i class="fa-solid fa-user text-[10px] mr-1"></i> Criador: <strong class="text-slate-200">${escapeHtml(ch.player || ch.ownerEmail || 'Jogador')}</strong>
                 • <span class="text-amber-300 font-semibold"><i class="fa-solid fa-coins ml-1 mr-0.5"></i>${ch.currencyGold ?? 0} £</span>
                 • <span class="text-emerald-300 font-semibold"><i class="fa-solid fa-medal ml-1 mr-0.5"></i>${ch.contributionPoints ?? 0} pts</span>
+                • <span class="text-cyan-300 font-semibold" title="Munição Total = Carregada nas Armas + Reserva"><i class="fa-solid fa-bullseye ml-1 mr-0.5"></i>Mun: ${((ch.weapons || []).filter(w => w.isFirearm !== false && (w.isFirearm || w.ammoMax > 0)).reduce((acc, w) => acc + Math.max(0, Number(w.ammoCurrent ?? 0)), 0)) + Math.max(0, Number(ch.totalAmmoReserve ?? 0))}</span>
               </p>
               </div>
             </div>
@@ -777,6 +778,29 @@ function renderGMCharactersOverviewGrid(charactersMap, campaignState) {
               <span><i class="fa-solid fa-flask text-amber-400 mr-1"></i> Digestão: <strong class="text-brass-200">${potPct}%</strong></span>
               <span><i class="fa-solid fa-biohazard text-crimson-400 mr-1"></i> Corrupção: <strong class="text-crimson-300">${ch.corruptionLevel ?? 0}%</strong></span>
             </div>
+
+            ${(Array.isArray(ch.activePassives) && ch.activePassives.length > 0) ? `
+              <div class="mt-2 pt-2 border-t border-slate-800/80 bg-obsidian-950/90 rounded-lg p-2 space-y-1.5">
+                <div class="flex items-center justify-between text-[10px]">
+                  <span class="font-display font-bold uppercase text-emerald-300 flex items-center gap-1">
+                    <i class="fa-solid fa-eye text-emerald-400 animate-pulse"></i> Passivas Ativas (${ch.activePassives.length})
+                  </span>
+                  <button onclick="app.gmDeactivateAllPassivesForChar('${ch.id}')" class="px-2 py-0.5 rounded bg-crimson-950 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 font-bold text-[9px] transition-all">
+                    <i class="fa-solid fa-power-off mr-0.5"></i>Desligar Todas
+                  </button>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  ${ch.activePassives.map((ap, apIdx) => `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-obsidian-900 border border-emerald-500/40 text-emerald-200 text-[10px] font-semibold">
+                      <span>${escapeHtml(ap.name)}</span>
+                      <button onclick="app.gmDeactivatePlayerPassive('${ch.id}', ${apIdx})" title="Desligar esta passiva" class="text-slate-400 hover:text-crimson-400 ml-0.5">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </span>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           <div class="grid grid-cols-6 gap-1 bg-obsidian-950/80 p-2 rounded-lg border border-slate-800/80 text-center mb-4">
@@ -2263,6 +2287,59 @@ export function renderWeaponsList(char, forceRebuild = false) {
   const container = document.getElementById('weaponsListContainer');
   if (!container) return;
   const weapons = char.weapons || [];
+
+  // Painel de Munição Total do Jogador (Carregada nas Armas + Reserva na Mochila)
+  const ammoOverviewEl = document.getElementById('playerTotalAmmoOverview');
+  if (ammoOverviewEl && (forceRebuild || !isUserTypingInContainer(ammoOverviewEl))) {
+    const firearms = weapons.filter(w => w.isFirearm !== false && (w.isFirearm || w.ammoMax > 0));
+    const loadedAmmo = firearms.reduce((sum, w) => sum + Math.max(0, Number(w.ammoCurrent ?? 0)), 0);
+    const loadedMax = firearms.reduce((sum, w) => sum + Math.max(0, Number(w.ammoMax ?? 6)), 0);
+    const reserveAmmo = Math.max(0, Number(char.totalAmmoReserve ?? 0));
+    const grandTotalAmmo = loadedAmmo + reserveAmmo;
+
+    ammoOverviewEl.innerHTML = `
+      <div class="bg-obsidian-950/90 border border-amber-400/35 rounded-xl p-3.5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-950/80 border border-amber-400/50 flex items-center justify-center text-amber-300 text-base shrink-0 shadow">
+              <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <div>
+              <div class="text-[10px] font-display uppercase tracking-wider text-amber-300 font-bold">
+                Controle de Munição Total do Personagem
+              </div>
+              <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                <span class="font-display font-extrabold text-base sm:text-lg text-brass-200">
+                  Total: <strong class="text-amber-300">${grandTotalAmmo}</strong> projéteis
+                </span>
+                <span class="text-xs text-slate-400">
+                  (Nas Armas: <strong class="text-slate-200">${loadedAmmo}/${loadedMax}</strong> • Na Reserva: <strong class="text-emerald-300">${reserveAmmo}</strong>)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] font-display uppercase text-slate-400 mr-1">Munição Reserva:</span>
+            <button onclick="app.adjustTotalAmmoReserve(-5)" class="px-2 py-1 rounded bg-obsidian-900 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-xs font-bold">-5</button>
+            <button onclick="app.adjustTotalAmmoReserve(-1)" class="px-2 py-1 rounded bg-obsidian-900 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-xs font-bold">-1</button>
+            <input type="number" min="0" value="${reserveAmmo}"
+              onchange="app.setTotalAmmoReserve(Number(this.value))"
+              class="sheet-input w-16 text-center py-1 rounded text-xs font-extrabold text-amber-200" />
+            <button onclick="app.adjustTotalAmmoReserve(1)" class="px-2 py-1 rounded bg-obsidian-900 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-xs font-bold">+1</button>
+            <button onclick="app.adjustTotalAmmoReserve(5)" class="px-2 py-1 rounded bg-obsidian-900 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-xs font-bold">+5</button>
+          </div>
+        </div>
+
+        <div>
+          <input type="text" value="${escapeHtml(char.ammoNotes || '')}"
+            oninput="app.updateField('ammoNotes', this.value)"
+            placeholder="Anotar tipos de munição na reserva (ex: 12x Balas de Caça-Demônios, 6x Balas Purificadoras do Sol)..."
+            class="sheet-input w-full px-3 py-1.5 rounded-lg text-xs text-slate-300" />
+        </div>
+      </div>
+    `;
+  }
   if (!forceRebuild && isUserTypingInContainer(container)) {
     weapons.forEach((w, idx) => {
       const atkSpan = document.getElementById(`weaponAtkBtnLabel_${idx}`);
@@ -2588,9 +2665,14 @@ export function renderDiceLogs(diceLogs, campaignState = null, activeCharacterId
   }
 
   let visibleLogs = diceLogs || [];
-  if (activeCamp && activeCamp.restrictCombatAndDice !== false && !(viewMode === 'gm' && currentUser?.role === 'gm')) {
+  if (activeCamp && activeCamp.restrictCombatAndDice !== false) {
     const allowedIds = new Set(activeCamp.characterIds || []);
-    visibleLogs = visibleLogs.filter(l => !l.characterId || allowedIds.has(l.characterId) || l.campaignId === activeCamp.id);
+    visibleLogs = visibleLogs.filter(l => {
+      if (l.characterId) {
+        return allowedIds.has(l.characterId);
+      }
+      return l.campaignId === activeCamp.id;
+    });
   }
 
   if (visibleLogs.length === 0) {
@@ -3634,6 +3716,8 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
     panelPassives.classList.toggle('hidden', activeOracleTab !== 'passives');
   }
 
+  const isGMUser = currentUser?.role === 'gm';
+
   // Mini-barra visível mesmo na aba de Dados mostrando os poderes/magias ativos na mesa
   if (miniBar) {
     const myActives = Array.isArray(char?.activePassives) ? char.activePassives : [];
@@ -3646,9 +3730,12 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
             <span class="text-[9px] font-display font-bold uppercase text-eldritch-300 shrink-0">
               <i class="fa-solid fa-eye text-emerald-400 animate-pulse mr-1"></i>Ativas:
             </span>
-            ${myActives.map(ap => `
-              <span class="px-2 py-0.5 rounded bg-obsidian-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold truncate max-w-[140px]">
-                ${escapeHtml(ap.name)}
+            ${myActives.map((ap, apIdx) => `
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-obsidian-950 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold max-w-[160px]">
+                <span class="truncate">${escapeHtml(ap.name)}</span>
+                <button onclick="app.deactivatePassive(${apIdx})" title="Desligar passiva" class="text-slate-400 hover:text-crimson-400 ml-0.5">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
               </span>
             `).join('')}
           </div>
@@ -3664,12 +3751,20 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
 
   panelPassives.innerHTML = `
     <div class="space-y-3">
-      <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 space-y-1">
-        <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-200 flex items-center gap-1.5">
-          <i class="fa-solid fa-eye text-emerald-400"></i> Poderes, Habilidades & Magias Ativos na Mesa
-        </h4>
+      <div class="bg-obsidian-950/90 border border-brass-400/35 rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="font-display font-bold text-xs uppercase tracking-wider text-brass-200 flex items-center gap-1.5">
+            <i class="fa-solid fa-eye text-emerald-400"></i> Poderes, Habilidades & Magias Ativos na Mesa
+          </h4>
+          ${(isGMUser && charsWithActivePassives.length > 0) ? `
+            <button onclick="app.gmClearAllActivePassives()" title="Desligar todas as passivas ativas de todos os jogadores"
+              class="px-2.5 py-1 rounded-lg bg-crimson-950 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[10px] font-display font-bold flex items-center gap-1 shrink-0 transition-all">
+              <i class="fa-solid fa-power-off"></i> Desligar Todas
+            </button>
+          ` : ''}
+        </div>
         <p class="text-[11px] text-slate-400 leading-snug">
-          Modo de visualização sincronizado da campanha. Para ativar ou desativar um poder ou magia, use o botão <strong>"Manter Ativo na Mesa"</strong> dentro das abas <em>Poderes Beyonder</em> ou <em>Magias & Rituais</em> da sua ficha.
+          Modo de visualização sincronizado da campanha. ${isGMUser ? 'Como <strong>Mestre</strong>, você pode desligar qualquer passiva ativa a qualquer momento.' : 'Para ativar um poder ou magia, use o botão <strong>"Manter Ativo na Mesa"</strong> na sua ficha.'}
         </p>
       </div>
 
@@ -3681,44 +3776,56 @@ export function renderOraclePassivesSection(char, charactersMap, campaignState, 
         </div>
       ` : `
         <div class="space-y-3">
-          ${charsWithActivePassives.map(c => `
-            <div class="bg-obsidian-950/90 border ${char && c.id === char.id ? 'border-emerald-500/50' : 'border-slate-800'} rounded-xl p-3 space-y-2.5 shadow-md">
-              <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
-                ${c.avatarUrl ? `
-                  <img src="${escapeHtml(c.avatarUrl)}" alt="${escapeHtml(c.name)}" class="w-8 h-8 rounded-lg object-cover border border-brass-400/50 shrink-0" />
-                ` : `
-                  <div class="w-8 h-8 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-xs shrink-0">
-                    <i class="fa-solid fa-user-secret"></i>
-                  </div>
-                `}
-                <div class="min-w-0 flex-1">
-                  <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(c.name)}</div>
-                  <div class="text-[10px] text-slate-400 truncate">${escapeHtml(c.pathway || '')} • ${c.sequence === 'Humana' ? 'Humano' : `Seq. ${c.sequence}`}</div>
-                </div>
-                <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold shrink-0">
-                  ${c.activePassives.length} ativa${c.activePassives.length > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <div class="space-y-2">
-                ${(c.activePassives || []).map(ap => `
-                  <div class="bg-obsidian-900/95 border border-emerald-500/30 rounded-lg p-2.5 space-y-1">
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="flex items-center gap-1.5 min-w-0">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
-                        <span class="font-display font-bold text-xs text-emerald-200 truncate">${escapeHtml(ap.name)}</span>
-                      </div>
-                      <span class="px-1.5 py-0.5 rounded bg-obsidian-950 border border-slate-800 text-[9px] font-bold uppercase ${ap.sourceType === 'spells' ? 'text-astral-300' : 'text-eldritch-300'} shrink-0">
-                        ${escapeHtml(ap.categoryLabel || (ap.sourceType === 'spells' ? 'Magia / Ritual' : 'Poder / Passiva'))}
-                      </span>
+          ${charsWithActivePassives.map(c => {
+            const canTurnOff = isGMUser || (char && c.id === char.id);
+            return `
+              <div class="bg-obsidian-950/90 border ${char && c.id === char.id ? 'border-emerald-500/50' : 'border-slate-800'} rounded-xl p-3 space-y-2.5 shadow-md">
+                <div class="flex items-center gap-2.5 border-b border-slate-800 pb-2">
+                  ${c.avatarUrl ? `
+                    <img src="${escapeHtml(c.avatarUrl)}" alt="${escapeHtml(c.name)}" class="w-8 h-8 rounded-lg object-cover border border-brass-400/50 shrink-0" />
+                  ` : `
+                    <div class="w-8 h-8 rounded-lg bg-obsidian-900 border border-brass-400/30 flex items-center justify-center text-brass-300 text-xs shrink-0">
+                      <i class="fa-solid fa-user-secret"></i>
                     </div>
-                    ${ap.description ? `<p class="text-[11px] text-slate-300 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
-                    ${(ap.cost ?? 0) > 0 ? `<div class="text-[10px] text-astral-300 font-semibold">Custo: ${ap.cost} PE</div>` : ''}
+                  `}
+                  <div class="min-w-0 flex-1">
+                    <div class="font-display font-bold text-xs text-brass-200 truncate">${escapeHtml(c.name)}</div>
+                    <div class="text-[10px] text-slate-400 truncate">${escapeHtml(c.pathway || '')} • ${c.sequence === 'Humana' ? 'Humano' : `Seq. ${c.sequence}`}</div>
                   </div>
-                `).join('')}
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold shrink-0">
+                    ${c.activePassives.length} ativa${c.activePassives.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div class="space-y-2">
+                  ${(c.activePassives || []).map((ap, apIdx) => `
+                    <div class="bg-obsidian-900/95 border border-emerald-500/30 rounded-lg p-2.5 space-y-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                          <span class="font-display font-bold text-xs text-emerald-200 truncate">${escapeHtml(ap.name)}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                          <span class="px-1.5 py-0.5 rounded bg-obsidian-950 border border-slate-800 text-[9px] font-bold uppercase ${ap.sourceType === 'spells' ? 'text-astral-300' : 'text-eldritch-300'}">
+                            ${escapeHtml(ap.categoryLabel || (ap.sourceType === 'spells' ? 'Magia / Ritual' : 'Poder / Passiva'))}
+                          </span>
+                          ${canTurnOff ? `
+                            <button onclick="app.gmDeactivatePlayerPassive('${c.id}', ${apIdx})"
+                              title="Desligar esta passiva"
+                              class="px-2 py-0.5 rounded bg-crimson-950/90 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 text-[9px] font-bold flex items-center gap-1 transition-all">
+                              <i class="fa-solid fa-power-off"></i> Desligar
+                            </button>
+                          ` : ''}
+                        </div>
+                      </div>
+                      ${ap.description ? `<p class="text-[11px] text-slate-300 leading-snug">${escapeHtml(ap.description)}</p>` : ''}
+                      ${(ap.cost ?? 0) > 0 ? `<div class="text-[10px] text-astral-300 font-semibold">Custo: ${ap.cost} PE</div>` : ''}
+                    </div>
+                  `).join('')}
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `}
     </div>
