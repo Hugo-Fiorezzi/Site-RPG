@@ -881,7 +881,7 @@ export function renderGMCampaignAndDowntimePanel(charactersMap, campaignState, f
 
   const testSelectOptionsHtml = (selectedKey) => `
     <option value="">Sem teste solicitado</option>
-    <optgroup label="Perícias (19)">
+    <optgroup label="Perícias (20)">
       ${SKILLS_DEF.map(s => `<option value="${s.id}" ${selectedKey === s.id ? 'selected' : ''}>Perícia: ${s.name} (${s.defaultAttr.toUpperCase()})</option>`).join('')}
     </optgroup>
     <optgroup label="Atributos Principais">
@@ -2179,13 +2179,16 @@ export function renderPlayerActionEconomyAndFilter(char, actionFilterMode = 'all
 
   (char.weapons || []).forEach((w, idx) => {
     const aType = w.actionType || 'padrao';
-    const ammoInfo = w.isFirearm ? ` • Munição: ${w.ammoCurrent ?? 0}/${w.ammoMax ?? 6}` : '';
+    const isFire = w.isFirearm !== false && (w.isFirearm || w.ammoMax > 0);
+    const ammoInfo = isFire ? ` • Munição: ${w.ammoCurrent ?? 0}/${w.ammoMax ?? 6}` : '';
+    const peCost = Math.max(0, Number(w.peCost ?? 0));
+    const peInfo = (w.isMysticAttack || peCost > 0) ? ` • Custo: ${peCost} PE` : '';
     allOptions.push({
       actionType: aType,
-      category: 'Arma / Ataque',
+      category: (w.isMysticAttack || peCost > 0) ? 'Ataque Místico' : 'Arma / Ataque',
       name: w.name || 'Ataque',
-      detail: `Atq ${formatSigned(w.attackBonus ?? 0)} • Dano ${w.damage || '1d6'}${ammoInfo}`,
-      ctaLabel: 'Atacar',
+      detail: `Atq ${formatSigned(w.attackBonus ?? 0)} • Dano ${w.damage || '1d6'}${ammoInfo}${peInfo}`,
+      ctaLabel: peCost > 0 ? `Atacar (-${peCost} PE)` : 'Atacar',
       onClick: `app.rollWeaponAttack(${idx}, true)`
     });
   });
@@ -2342,8 +2345,10 @@ export function renderWeaponsList(char, forceRebuild = false) {
   }
   if (!forceRebuild && isUserTypingInContainer(container)) {
     weapons.forEach((w, idx) => {
+      const peCost = Math.max(0, Number(w.peCost ?? 0));
+      const peSuffix = (w.isMysticAttack || peCost > 0) && peCost > 0 ? ` • -${peCost} PE` : '';
       const atkSpan = document.getElementById(`weaponAtkBtnLabel_${idx}`);
-      if (atkSpan) atkSpan.textContent = `Atacar (${formatSigned(w.attackBonus ?? 0)})`;
+      if (atkSpan) atkSpan.textContent = `Atacar (${formatSigned(w.attackBonus ?? 0)}${peSuffix})`;
       const dmgSpan = document.getElementById(`weaponDmgBtnLabel_${idx}`);
       if (dmgSpan) dmgSpan.textContent = `Dano (${w.damage || '1d6'})`;
     });
@@ -2357,6 +2362,9 @@ export function renderWeaponsList(char, forceRebuild = false) {
   container.innerHTML = weapons.map((w, idx) => {
     const actionKey = w.actionType || 'padrao';
     const isFirearm = w.isFirearm !== false && (w.isFirearm || w.ammoMax > 0);
+    const isMystic = Boolean(w.isMysticAttack || Number(w.peCost) > 0);
+    const peCost = Math.max(0, Number(w.peCost ?? 0));
+    const peSuffix = isMystic && peCost > 0 ? ` • -${peCost} PE` : '';
     const ammoCur = Number(w.ammoCurrent ?? 6);
     const ammoMax = Math.max(1, Number(w.ammoMax ?? 6));
 
@@ -2367,10 +2375,10 @@ export function renderWeaponsList(char, forceRebuild = false) {
       : '';
 
     return `
-      <div class="bg-obsidian-950/80 border border-slate-800 hover:border-brass-400/35 rounded-xl p-3.5 transition-all space-y-2.5">
+      <div class="bg-obsidian-950/80 border ${isMystic ? 'border-astral-500/40' : 'border-slate-800'} hover:border-brass-400/35 rounded-xl p-3.5 transition-all space-y-2.5">
         <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
           <div class="sm:col-span-4">
-            <label class="block text-[10px] uppercase text-slate-400">Arma / Ataque</label>
+            <label class="block text-[10px] uppercase text-slate-400">Arma / Ataque Místico</label>
             <input type="text" value="${escapeHtml(w.name || '')}" oninput="app.updateCollectionItem('weapons', ${idx}, 'name', this.value)"
               class="sheet-input w-full px-2.5 py-1.5 rounded text-xs font-bold text-brass-200" />
           </div>
@@ -2397,7 +2405,7 @@ export function renderWeaponsList(char, forceRebuild = false) {
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2 bg-obsidian-900/70 px-3 py-2 rounded-lg border border-slate-800/90">
-          <div class="flex flex-wrap items-center gap-2.5">
+          <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center gap-1.5">
               <span class="text-[10px] font-display uppercase text-brass-300 font-bold"><i class="fa-solid fa-hand-fist mr-1"></i>Empunhadura:</span>
               <select onchange="app.equipCharacterItem('weapons', ${idx}, this.value)"
@@ -2410,6 +2418,20 @@ export function renderWeaponsList(char, forceRebuild = false) {
               <input type="checkbox" ${isFirearm ? 'checked' : ''} onchange="app.updateCollectionItem('weapons', ${idx}, 'isFirearm', this.checked, true)" class="accent-amber-400 rounded" />
               <span class="font-semibold text-[11px]"><i class="fa-solid fa-gun text-brass-400 mr-1"></i>Arma de Fogo</span>
             </label>
+
+            <label class="inline-flex items-center gap-1.5 text-xs text-astral-300 cursor-pointer">
+              <input type="checkbox" ${isMystic ? 'checked' : ''} onchange="app.toggleWeaponMysticPE(${idx}, this.checked)" class="accent-astral-400 rounded" />
+              <span class="font-semibold text-[11px]"><i class="fa-solid fa-star-of-life text-astral-400 mr-1"></i>Ataque Místico (Gasta PE)</span>
+            </label>
+
+            ${isMystic ? `
+              <div class="flex items-center gap-1 bg-obsidian-950/90 px-2 py-0.5 rounded-lg border border-astral-500/40">
+                <span class="text-[10px] font-display uppercase text-astral-300 font-bold">Custo PE:</span>
+                <input type="number" min="0" value="${peCost}"
+                  oninput="app.updateCollectionItem('weapons', ${idx}, 'peCost', Math.max(0, Number(this.value)))"
+                  class="sheet-input w-12 text-center py-0.5 rounded text-xs font-extrabold text-astral-200" />
+              </div>
+            ` : ''}
           </div>
 
           ${isFirearm ? `
@@ -2428,7 +2450,7 @@ export function renderWeaponsList(char, forceRebuild = false) {
                 <i class="fa-solid fa-rotate-right mr-1"></i>Recarregar
               </button>
             </div>
-          ` : `<span class="text-[11px] text-slate-500 italic">Arma Branca / Sem Munição</span>`}
+          ` : `<span class="text-[11px] text-slate-500 italic">${isMystic ? `Ataque Místico (${peCost} PE por uso)` : 'Arma Branca / Sem Munição'}</span>`}
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
@@ -2437,8 +2459,14 @@ export function renderWeaponsList(char, forceRebuild = false) {
             class="sheet-input flex-1 min-w-[180px] px-2.5 py-1 rounded text-xs text-slate-400" />
 
           <div class="flex items-center gap-1.5">
+            ${(isMystic && peCost > 0) ? `
+              <button onclick="app.spendWeaponMysticPEOnly(${idx})" title="Apenas descontar o custo de PE deste ataque místico"
+                class="px-2.5 py-1.5 rounded-lg bg-astral-900/50 hover:bg-astral-600 text-astral-200 hover:text-white border border-astral-500/40 font-display font-bold text-xs flex items-center gap-1 transition-all">
+                <i class="fa-solid fa-star-of-life"></i> -${peCost} PE
+              </button>
+            ` : ''}
             <button onclick="app.rollWeaponAttack(${idx}, true)" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-400 text-brass-200 hover:text-obsidian-950 border border-brass-400/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
-              <i class="fa-solid fa-dice-d20"></i> <span id="weaponAtkBtnLabel_${idx}">Atacar (${formatSigned(w.attackBonus ?? 0)})</span>
+              <i class="fa-solid fa-dice-d20"></i> <span id="weaponAtkBtnLabel_${idx}">Atacar (${formatSigned(w.attackBonus ?? 0)}${peSuffix})</span>
             </button>
             <button onclick="app.rollWeaponDamage(${idx})" class="px-3 py-1.5 rounded-lg bg-crimson-900/40 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/40 font-display font-bold text-xs flex items-center gap-1.5 transition-all">
               <i class="fa-solid fa-burst"></i> <span id="weaponDmgBtnLabel_${idx}">Dano (${escapeHtml(w.damage || '1d6')})</span>
@@ -4341,6 +4369,7 @@ export function renderPlayerCampaignHub(char, charactersMap, campaignState, curr
                     <option value="itens" ${editingDossier?.category === 'itens' ? 'selected' : ''}>Item / Artefato</option>
                     <option value="criaturas" ${editingDossier?.category === 'criaturas' ? 'selected' : ''}>Criatura / Monstro</option>
                     <option value="caminhos" ${editingDossier?.category === 'caminhos' ? 'selected' : ''}>Caminho Beyonder</option>
+                    <option value="organizacoes" ${editingDossier?.category === 'organizacoes' ? 'selected' : ''}>Organização Beyonder / Culto</option>
                   </select>
                 </div>
                 <div class="sm:col-span-5">

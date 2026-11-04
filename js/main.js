@@ -110,6 +110,15 @@ class BeyonderGrimoireController {
           renderOraclePassivesSection(this.getActiveChar(), this.charactersMap, this.campaignState, this.currentUser, this.activeOracleTab, false);
           return;
         }
+        Object.values(mergedMap).forEach(ch => {
+          if (!ch.skills) ch.skills = {};
+          if (!ch.skills.percepcao) {
+            ch.skills.percepcao = { attr: 'sab', profLevel: 0, bonus: 0 };
+          }
+          if (ch.skills.sociedade && ch.skills.sociedade.attr === 'int') {
+            ch.skills.sociedade.attr = 'sab';
+          }
+        });
         this.charactersMap = mergedMap;
         this.ensureValidActiveCharacterForUser();
         this.renderAll();
@@ -2242,6 +2251,37 @@ class BeyonderGrimoireController {
     });
   }
 
+  toggleWeaponMysticPE(idx, checked) {
+    const char = this.getActiveChar();
+    const w = char?.weapons?.[idx];
+    if (!w) return;
+    w.isMysticAttack = Boolean(checked);
+    if (w.isMysticAttack && !Number(w.peCost)) {
+      w.peCost = 2;
+    } else if (!w.isMysticAttack) {
+      w.peCost = 0;
+    }
+    this.renderSpecificCollection(char, 'weapons', true);
+    this.scheduleAutoSave();
+  }
+
+  spendWeaponMysticPEOnly(idx) {
+    const char = this.getActiveChar();
+    const w = char?.weapons?.[idx];
+    if (!char || !w) return;
+    const peCost = Math.max(0, Number(w.peCost ?? 0));
+    if (peCost <= 0) return;
+    const curSp = Number(char.vitals?.sp?.current ?? 0);
+    if (curSp < peCost) {
+      showToast(`Espiritualidade insuficiente para ${w.name} (${curSp}/${peCost} PE)!`, 'error');
+      return;
+    }
+    char.vitals.sp.current = Math.max(0, curSp - peCost);
+    this.renderAll();
+    this.scheduleAutoSave();
+    showToast(`${char.name} gastou ${peCost} PE em ${w.name}!`);
+  }
+
   rollWeaponAttack(idx, consumeAction = false) {
     if (!this.canPlayerRollFreeDice().allowed) {
       showToast('Rolagem de ataque bloqueada durante a semana! Aguarde o Mestre iniciar o combate ou liberar rolagens.', 'error');
@@ -2250,6 +2290,15 @@ class BeyonderGrimoireController {
     const char = this.getActiveChar();
     const w = char?.weapons?.[idx];
     if (!w) return;
+
+    const peCost = (w.isMysticAttack || Number(w.peCost) > 0) ? Math.max(0, Number(w.peCost ?? 0)) : 0;
+    if (peCost > 0) {
+      const curSp = Number(char.vitals?.sp?.current ?? 0);
+      if (curSp < peCost) {
+        showToast(`Espiritualidade (PE) insuficiente para realizar o ataque místico "${w.name}" (${curSp}/${peCost} PE)!`, 'error');
+        return;
+      }
+    }
 
     const isFirearm = w.isFirearm !== false && (w.isFirearm || w.ammoMax > 0);
     if (isFirearm) {
@@ -2277,13 +2326,18 @@ class BeyonderGrimoireController {
       }
     }
 
+    if (peCost > 0 && char.vitals?.sp) {
+      char.vitals.sp.current = Math.max(0, (Number(char.vitals.sp.current) || 0) - peCost);
+    }
+
     this.renderAll();
     this.scheduleAutoSave();
 
     const ammoSubtitle = isFirearm ? ` • Munição restante: ${w.ammoCurrent}/${w.ammoMax ?? 6}` : '';
+    const peSubtitle = peCost > 0 ? ` • Gastou ${peCost} PE` : '';
     this.executeD20({
       title: `Ataque: ${w.name}`,
-      subtitle: `${actionMeta.short} • ${w.type || 'Ataque'}${ammoSubtitle}`,
+      subtitle: `${actionMeta.short} • ${w.type || 'Ataque'}${ammoSubtitle}${peSubtitle}`,
       modifier: Number(w.attackBonus) || 0
     });
   }

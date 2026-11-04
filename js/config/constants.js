@@ -308,7 +308,8 @@ export const DOSSIER_CATEGORIES = [
   { key: 'personagens', label: 'Personagens & NPCs', short: 'Personagem', icon: 'fa-user-tie', badgeClass: 'bg-astral-950/90 text-astral-300 border-astral-500/40' },
   { key: 'itens', label: 'Itens & Artefatos', short: 'Item / Artefato', icon: 'fa-gem', badgeClass: 'bg-amber-950/90 text-amber-300 border-amber-500/40' },
   { key: 'criaturas', label: 'Criaturas', short: 'Criatura', icon: 'fa-dragon', badgeClass: 'bg-crimson-950/90 text-crimson-300 border-crimson-500/40' },
-  { key: 'caminhos', label: 'Caminhos Beyonder', short: 'Caminho Beyonder', icon: 'fa-compass-drafting', badgeClass: 'bg-eldritch-950/90 text-eldritch-300 border-eldritch-500/40' }
+  { key: 'caminhos', label: 'Caminhos Beyonder', short: 'Caminho Beyonder', icon: 'fa-compass-drafting', badgeClass: 'bg-eldritch-950/90 text-eldritch-300 border-eldritch-500/40' },
+  { key: 'organizacoes', label: 'Organizações & Cultos', short: 'Organização / Culto', icon: 'fa-building-columns', badgeClass: 'bg-purple-950/90 text-purple-300 border-purple-500/40' }
 ];
 
 export const SHARED_NOTE_CATEGORIES = [
@@ -399,6 +400,16 @@ export const DEFAULT_CAMPAIGN_DOSSIERS = [
     description: 'Caminho voltado às artes adivinhatórias, astrologia, leitura de auras pela Visão Espiritual e rituais místicos. Na Sequência 8 (Palhaço), concede agilidade acrobática, controle facial absoluto e intuição de perigo.',
     visibleToPlayers: true,
     createdAt: Date.now() - 20000000
+  },
+  {
+    id: 'dos_org_1',
+    category: 'organizacoes',
+    title: 'Falcões Noturnos & Ordem Secreta',
+    subtitle: 'Organizações Beyonder Oficiais & Cultos Ocultos',
+    imageUrl: "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340"><defs><linearGradient id="go1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0b0716"/><stop offset="100%" stop-color="#1e102f"/></linearGradient></defs><rect width="600" height="340" fill="url(#go1)"/><circle cx="300" cy="150" r="68" fill="#090d16" stroke="#c084fc" stroke-width="2.5"/><path d="M275 110 A45 45 0 1 0 335 185 A36 36 0 1 1 275 110 Z" fill="#e11d48" opacity="0.8"/><text x="30" y="315" fill="#e9d5ff" font-family="serif" font-size="18" font-weight="bold">Organizações Beyonder, Igrejas &amp; Ordens Secretas</text></svg>`),
+    description: 'Os Falcões Noturnos são a força Beyonder vinculada à Igreja da Deusa da Noite Eterna. Em oposição às Igrejas Ortodoxas operam cultos e sociedades antigas como a Ordem Secreta, a Ordem Aurora e a Escola Rosa do Pensamento.',
+    visibleToPlayers: true,
+    createdAt: Date.now() - 15000000
   }
 ];
 
@@ -519,8 +530,9 @@ export const SKILLS_DEF = [
   { id: 'medicina', name: 'Medicina', defaultAttr: 'int' },
   { id: 'adaptacao', name: 'Adaptação', defaultAttr: 'sab' },
   { id: 'investigacao', name: 'Investigação', defaultAttr: 'int' },
+  { id: 'percepcao', name: 'Percepção', defaultAttr: 'sab' },
   { id: 'religiao', name: 'Religião', defaultAttr: 'int' },
-  { id: 'sociedade', name: 'Sociedade', defaultAttr: 'int' },
+  { id: 'sociedade', name: 'Sociedade', defaultAttr: 'sab' },
   { id: 'furtividade', name: 'Furtividade', defaultAttr: 'agi' },
   { id: 'natureza', name: 'Natureza', defaultAttr: 'int' },
   { id: 'historia', name: 'História', defaultAttr: 'int' },
@@ -651,13 +663,15 @@ export function createCollectionItemTemplate(collectionKey, character) {
   const templates = {
     weapons: {
       id: uid,
-      name: 'Nova Arma / Disparo',
+      name: 'Nova Arma / Ataque Místico',
       attackBonus: Number(character?.proficiencyBonus) || 2,
       damage: '1d8+2',
-      type: 'Perfurante • 18m',
+      type: 'Perfurante / Místico • 18m',
       actionType: 'padrao',
       equipSlot: '',
       isFirearm: true,
+      isMysticAttack: false,
+      peCost: 0,
       ammoCurrent: 6,
       ammoMax: 6
     },
