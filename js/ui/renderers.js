@@ -779,6 +779,45 @@ function renderGMCharactersOverviewGrid(charactersMap, campaignState) {
               <span><i class="fa-solid fa-biohazard text-crimson-400 mr-1"></i> Corrupção: <strong class="text-crimson-300">${ch.corruptionLevel ?? 0}%</strong></span>
             </div>
 
+            <!-- Edição Direta de Dinheiro (Libras, Soli, Pennies) pelo Mestre no Card da Ficha -->
+            <div class="mt-2 pt-2 border-t border-slate-800/80 bg-obsidian-950/90 rounded-lg p-2 space-y-1.5">
+              <div class="text-[10px] font-display font-bold uppercase text-amber-300 flex items-center justify-between">
+                <span><i class="fa-solid fa-coins text-amber-400 mr-1"></i> Dinheiro da Ficha (Alterar Direto)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5 text-center">
+                <div class="bg-obsidian-900 border border-amber-500/30 rounded p-1">
+                  <div class="text-[9px] text-amber-300 font-bold mb-0.5">Libras (£)</div>
+                  <div class="flex items-center justify-center gap-0.5">
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyGold', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
+                    <input type="number" value="${ch.currencyGold ?? 0}"
+                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyGold', Number(this.value))"
+                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-extrabold text-amber-200" />
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyGold', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
+                  </div>
+                </div>
+                <div class="bg-obsidian-900 border border-slate-700 rounded p-1">
+                  <div class="text-[9px] text-slate-300 font-bold mb-0.5">Soli (Prata)</div>
+                  <div class="flex items-center justify-center gap-0.5">
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencySoli', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
+                    <input type="number" value="${ch.currencySoli ?? 0}"
+                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencySoli', Number(this.value))"
+                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-bold text-slate-200" />
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencySoli', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
+                  </div>
+                </div>
+                <div class="bg-obsidian-900 border border-amber-700/40 rounded p-1">
+                  <div class="text-[9px] text-amber-500 font-bold mb-0.5">Pennies</div>
+                  <div class="flex items-center justify-center gap-0.5">
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyPenny', -1)" class="px-1 bg-obsidian-950 rounded text-crimson-300 text-[10px] font-bold">-</button>
+                    <input type="number" value="${ch.currencyPenny ?? 0}"
+                      onchange="app.gmSetPlayerStoreBalance('${ch.id}', 'currencyPenny', Number(this.value))"
+                      class="sheet-input w-12 text-center py-0.5 rounded text-[11px] font-bold text-amber-400" />
+                    <button onclick="app.gmAdjustPlayerCurrency('${ch.id}', 'currencyPenny', 1)" class="px-1 bg-obsidian-950 rounded text-emerald-300 text-[10px] font-bold">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             ${(Array.isArray(ch.activePassives) && ch.activePassives.length > 0) ? `
               <div class="mt-2 pt-2 border-t border-slate-800/80 bg-obsidian-950/90 rounded-lg p-2 space-y-1.5">
                 <div class="flex items-center justify-between text-[10px]">
@@ -1447,6 +1486,7 @@ export function renderCharacterSheet(char, activeSheetTab, skillSortMode = 'alph
   const agiMod = calcAttrMod(char.attributes?.agi?.value ?? 10, char.attributes?.agi?.bonus ?? 0);
   document.getElementById('charInitiativeDisplay').textContent = formatSigned(agiMod);
 
+  setInputValueIfNotFocused('charCurrencyGoldHeader', char.currencyGold ?? 0);
   setInputValueIfNotFocused('currencyGold', char.currencyGold ?? 0);
   setInputValueIfNotFocused('currencySoli', char.currencySoli ?? 0);
   setInputValueIfNotFocused('currencyPenny', char.currencyPenny ?? 0);
@@ -2481,47 +2521,97 @@ export function renderWeaponsList(char, forceRebuild = false) {
   }).join('');
 }
 
-export function renderEquipmentList(char, forceRebuild = false) {
+export function renderEquipmentList(char, forceRebuild = false, eqFilter = null) {
   const container = document.getElementById('equipmentListContainer');
+  const filterBar = document.getElementById('equipmentCategoryFilterBar');
   if (!container) return;
-  if (!forceRebuild && isUserTypingInContainer(container)) return;
+
+  const activeFilter = eqFilter || window.app?.equipmentCategoryFilter || 'all';
   const items = char.equipment || [];
-  if (items.length === 0) {
-    container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">Nenhum equipamento ou artefato selado registrado.</p>`;
+  const potionsCount = items.filter(it => (it.category || '').toLowerCase().includes('poção') || (it.category || '').toLowerCase().includes('pocao')).length;
+
+  if (filterBar) {
+    const filters = [
+      { key: 'all', label: `Todos os Itens (${items.length})`, icon: 'fa-box-open' },
+      { key: 'potions', label: `Poções p/ Levar (${potionsCount})`, icon: 'fa-flask-vial' },
+      { key: 'artifacts', label: 'Artefatos Selados', icon: 'fa-gem' },
+      { key: 'general', label: 'Equipamentos & Amuletos', icon: 'fa-toolbox' }
+    ];
+    filterBar.innerHTML = `
+      <div class="flex flex-wrap items-center gap-1.5">
+        ${filters.map(f => `
+          <button onclick="app.setEquipmentCategoryFilter('${f.key}')"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-display font-bold border transition-all flex items-center gap-1.5 ${activeFilter === f.key ? 'bg-brass-400 text-obsidian-950 border-brass-300 shadow' : 'bg-obsidian-950 text-slate-300 border-slate-800 hover:border-brass-400/40'}">
+            <i class="fa-solid ${f.icon}"></i>
+            <span>${f.label}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (!forceRebuild && isUserTypingInContainer(container)) return;
+
+  const indexedItems = items.map((item, idx) => ({ item, idx })).filter(({ item }) => {
+    const cat = (item.category || '').toLowerCase();
+    if (activeFilter === 'potions') return cat.includes('poção') || cat.includes('pocao');
+    if (activeFilter === 'artifacts') return cat.includes('artefato');
+    if (activeFilter === 'general') return !cat.includes('poção') && !cat.includes('pocao') && !cat.includes('artefato');
+    return true;
+  });
+
+  if (indexedItems.length === 0) {
+    container.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">${activeFilter === 'potions' ? 'Nenhuma poção registrada para levar na missão. Clique em "+ Poção p/ Levar" acima!' : 'Nenhum item encontrado nesta categoria.'}</p>`;
     return;
   }
 
-  container.innerHTML = items.map((item, idx) => `
-    <div class="bg-obsidian-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <input type="text" value="${escapeHtml(item.name || '')}" oninput="app.updateCollectionItem('equipment', ${idx}, 'name', this.value)"
-          placeholder="Nome do Item ou Artefato Selado" class="sheet-input flex-1 min-w-[180px] px-2.5 py-1.5 rounded text-xs font-bold text-amber-200" />
-        
-        <select onchange="app.updateCollectionItem('equipment', ${idx}, 'category', this.value)" class="sheet-input px-2 py-1.5 rounded text-xs text-eldritch-300">
-          ${EQUIPMENT_CATEGORIES.map(cat => `<option value="${cat}" ${item.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
-        </select>
+  container.innerHTML = indexedItems.map(({ item, idx }) => {
+    const isPotion = (item.category || '').toLowerCase().includes('poção') || (item.category || '').toLowerCase().includes('pocao');
+    return `
+      <div class="bg-obsidian-950/80 border ${isPotion ? 'border-emerald-500/45' : 'border-slate-800'} rounded-xl p-3.5 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          ${isPotion ? `
+            <span class="px-2 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-display font-bold uppercase shrink-0">
+              <i class="fa-solid fa-flask-vial mr-1"></i>Poção
+            </span>
+          ` : ''}
+          <input type="text" value="${escapeHtml(item.name || '')}" oninput="app.updateCollectionItem('equipment', ${idx}, 'name', this.value)"
+            placeholder="${isPotion ? 'Nome da Poção / Elixir levado...' : 'Nome do Item ou Artefato Selado'}"
+            class="sheet-input flex-1 min-w-[170px] px-2.5 py-1.5 rounded text-xs font-bold ${isPotion ? 'text-emerald-200' : 'text-amber-200'}" />
+          
+          <select onchange="app.updateCollectionItem('equipment', ${idx}, 'category', this.value, true)" class="sheet-input px-2 py-1.5 rounded text-xs ${isPotion ? 'text-emerald-300 font-bold' : 'text-eldritch-300'}">
+            ${EQUIPMENT_CATEGORIES.map(cat => `<option value="${cat}" ${item.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+          </select>
 
-        <select onchange="app.equipCharacterItem('equipment', ${idx}, this.value)"
-          title="Equipar item na Mão Direita, Mão Esquerda ou Duas Mãos"
-          class="sheet-input px-2 py-1.5 rounded text-xs font-bold ${item.equipSlot ? 'text-amber-300 border-amber-400/50 bg-amber-950/40' : 'text-slate-400'}">
-          ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(item.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
-        </select>
+          <select onchange="app.equipCharacterItem('equipment', ${idx}, this.value)"
+            title="Equipar item na Mão Direita, Mão Esquerda ou Duas Mãos"
+            class="sheet-input px-2 py-1.5 rounded text-xs font-bold ${item.equipSlot ? 'text-amber-300 border-amber-400/50 bg-amber-950/40' : 'text-slate-400'}">
+            ${EQUIP_SLOTS_DEF.map(sl => `<option value="${sl.key}" ${(item.equipSlot || '') === sl.key ? 'selected' : ''}>${sl.label}</option>`).join('')}
+          </select>
 
-        <div class="flex items-center gap-1">
-          <span class="text-[10px] text-slate-400">Qtd:</span>
-          <input type="number" value="${item.quantity ?? 1}" oninput="app.updateCollectionItem('equipment', ${idx}, 'quantity', Number(this.value))"
-            class="sheet-input w-14 text-center py-1 rounded text-xs font-bold" />
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] text-slate-400">Qtd:</span>
+            <input type="number" min="0" value="${item.quantity ?? 1}" oninput="app.updateCollectionItem('equipment', ${idx}, 'quantity', Number(this.value))"
+              class="sheet-input w-14 text-center py-1 rounded text-xs font-bold" />
+          </div>
+
+          ${isPotion ? `
+            <button onclick="app.consumeEquipmentItem(${idx})" title="Beber / Consumir 1 unidade desta poção"
+              class="px-2.5 py-1 rounded-lg bg-emerald-600/25 hover:bg-emerald-500 text-emerald-200 hover:text-obsidian-950 border border-emerald-400/40 text-[11px] font-display font-bold flex items-center gap-1 transition-all">
+              <i class="fa-solid fa-bottle-droplet"></i> Usar (-1)
+            </button>
+          ` : ''}
+
+          <button onclick="app.removeCollectionItem('equipment', ${idx})" class="p-1.5 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
+            <i class="fa-solid fa-trash"></i>
+          </button>
         </div>
-
-        <button onclick="app.removeCollectionItem('equipment', ${idx})" class="p-1.5 rounded bg-obsidian-900 hover:bg-crimson-950 text-slate-500 hover:text-crimson-400 border border-slate-800 text-xs">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+        <textarea rows="2" oninput="app.updateCollectionItem('equipment', ${idx}, 'description', this.value)"
+          placeholder="${isPotion ? 'Efeito da poção ao beber / arremessar (ex: Recupera 2d6 PV, Restaura 10 PE, Antídoto Espiritual)...' : 'Propriedades, habilidades e efeitos colaterais / condições de selamento...'}"
+          class="sheet-input w-full p-2 rounded text-xs text-slate-300">${escapeHtml(item.description || '')}</textarea>
       </div>
-      <textarea rows="2" oninput="app.updateCollectionItem('equipment', ${idx}, 'description', this.value)"
-        placeholder="Propriedades, habilidades e efeitos colaterais / condições de selamento..."
-        class="sheet-input w-full p-2 rounded text-xs text-slate-300">${escapeHtml(item.description || '')}</textarea>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 export function renderMysticList(char, collectionKey, forceRebuild = false) {

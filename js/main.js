@@ -73,6 +73,7 @@ class BeyonderGrimoireController {
     this.seqProgTargetCharId = null;
     this.deleteTargetCharId = null;
     this.storeUIState = { subTab: 'items', categoryFilter: 'all', searchText: '' };
+    this.equipmentCategoryFilter = 'all';
     this.campaignHubState = {
       subTab: 'resumo',
       dossierCat: 'all',
@@ -1752,6 +1753,9 @@ class BeyonderGrimoireController {
     } else if (field === 'proficiencyBonus') {
       renderSavingThrowsSection(char);
       renderSkillsList(char, this.skillSortMode);
+    } else if (field === 'currencyGold') {
+      setInputValueIfNotFocused('charCurrencyGoldHeader', normalizedValue);
+      setInputValueIfNotFocused('currencyGold', normalizedValue);
     } else if (['name', 'pathway', 'sequence'].includes(field)) {
       renderTopNavigation(this.charactersMap, this.activeCharacterId, this.viewMode, this.campaignState, this.currentUser);
     }
@@ -1763,6 +1767,56 @@ class BeyonderGrimoireController {
     const char = this.getActiveChar();
     if (!char) return;
     this.updateField('potionProgress', (Number(char.potionProgress) || 0) + delta);
+  }
+
+  adjustCharacterCurrency(field, delta) {
+    const char = this.getActiveChar();
+    if (!char) return;
+    const nextVal = Math.max(0, (Number(char[field]) || 0) + Number(delta || 0));
+    this.updateField(field, nextVal);
+    setInputValueIfNotFocused(field, nextVal);
+  }
+
+  setEquipmentCategoryFilter(filterKey) {
+    this.equipmentCategoryFilter = filterKey || 'all';
+    const char = this.getActiveChar();
+    if (char) renderEquipmentList(char, true, this.equipmentCategoryFilter);
+  }
+
+  addPotionEquipmentItem() {
+    const char = this.getActiveChar();
+    if (!char) return;
+    if (!Array.isArray(char.equipment)) char.equipment = [];
+    char.equipment.unshift({
+      id: `eq_pot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: 'Nova Poção / Elixir Levado',
+      category: 'Poção / Elixir Levado',
+      equipSlot: '',
+      quantity: 1,
+      description: 'Descreva o efeito da poção (ex: restaura PV/PE, óleo místico ou poção preparada para levar na missão).'
+    });
+    if (this.equipmentCategoryFilter !== 'all' && this.equipmentCategoryFilter !== 'potions') {
+      this.equipmentCategoryFilter = 'potions';
+    }
+    this.renderSpecificCollection(char, 'equipment', true);
+    this.scheduleAutoSave();
+    showToast('Nova Poção adicionada aos itens da ficha!', 'crit');
+  }
+
+  consumeEquipmentItem(idx) {
+    const char = this.getActiveChar();
+    const item = char?.equipment?.[idx];
+    if (!char || !item) return;
+    const curQty = Math.max(0, Number(item.quantity ?? 1));
+    if (curQty <= 0) {
+      showToast(`Você não possui mais unidades de "${item.name}"!`, 'error');
+      return;
+    }
+    item.quantity = curQty - 1;
+    char.updatedAt = Date.now();
+    this.renderSpecificCollection(char, 'equipment', true);
+    this.scheduleAutoSave();
+    showToast(`${char.name} utilizou "${item.name}" (Restam: ${item.quantity})!`, 'crit');
   }
 
   updateVital(vitalKey, prop, val) {
@@ -2974,6 +3028,15 @@ class BeyonderGrimoireController {
     showToast(`Saldo de ${ch.name} atualizado!`);
   }
 
+  async gmAdjustPlayerCurrency(charId, field, delta) {
+    if (!this.isGMUser()) return;
+    const ch = this.charactersMap[charId];
+    if (!ch) return;
+    ch[field] = Math.max(0, (Number(ch[field]) || 0) + Number(delta || 0));
+    this.renderAll();
+    await this.storage.saveCharacter(ch, this.charactersMap);
+  }
+
   async buyCampaignStoreItem(itemId, paymentType = 'gold') {
     const char = this.getActiveChar();
     const camp = this.getCampaignForChar(char);
@@ -3020,7 +3083,7 @@ class BeyonderGrimoireController {
 
     const catToEqMap = {
       armas: 'Instrumento Místico',
-      pocoes: 'Amuleto / Ingrediente',
+      pocoes: 'Poção / Elixir Levado',
       ingredientes: 'Amuleto / Ingrediente',
       artefatos: 'Artefato Selado Grau 3',
       amuletos: 'Amuleto / Ingrediente',

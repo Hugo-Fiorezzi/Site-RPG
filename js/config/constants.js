@@ -605,6 +605,7 @@ export const STANDARD_PROFICIENCIES_DEF = [
 ];
 
 export const EQUIPMENT_CATEGORIES = [
+  'Poção / Elixir Levado',
   'Equipamento Geral',
   'Instrumento Místico',
   'Amuleto / Ingrediente',

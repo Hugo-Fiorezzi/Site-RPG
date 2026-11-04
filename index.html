@@ -411,12 +411,20 @@
                 <div class="mt-3 pt-2.5 border-t border-slate-800/80 space-y-2">
                   <input id="charActingSummary" type="text" oninput="app.updateField('actingSummary', this.value)" placeholder="Lema de Atuação atual..."
                     class="sheet-input w-full px-2.5 py-1.5 rounded text-xs italic text-slate-300" />
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-1.5 text-xs">
-                      <span class="text-[10px] font-display uppercase text-amber-300"><i class="fa-solid fa-medal mr-1"></i>Contribuição:</span>
-                      <input id="charContributionPointsHeader" type="number" oninput="app.updateField('contributionPoints', Number(this.value))" class="sheet-input w-16 text-center py-0.5 rounded text-xs font-bold text-amber-200" />
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-1 text-xs">
+                      <span class="text-[10px] font-display uppercase text-amber-300"><i class="fa-solid fa-coins mr-1"></i>Libras (£):</span>
+                      <button onclick="app.adjustCharacterCurrency('currencyGold', -1)" class="px-1.5 py-0.5 rounded bg-obsidian-800 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-[10px] font-bold">-1</button>
+                      <input id="charCurrencyGoldHeader" type="number" oninput="app.updateField('currencyGold', Number(this.value))" class="sheet-input w-16 text-center py-0.5 rounded text-xs font-bold text-amber-200" />
+                      <button onclick="app.adjustCharacterCurrency('currencyGold', 1)" class="px-1.5 py-0.5 rounded bg-obsidian-800 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-[10px] font-bold">+1</button>
                     </div>
-                    <button onclick="app.openDeleteCharacterModal()" title="Excluir esta ficha permanentemente" class="px-3 py-1.5 rounded-lg bg-crimson-900/60 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/50 font-display font-bold text-xs flex items-center gap-1.5 shadow transition-all">
+                    <div class="flex items-center gap-1 text-xs">
+                      <span class="text-[10px] font-display uppercase text-emerald-300"><i class="fa-solid fa-medal mr-1"></i>Contrib.:</span>
+                      <input id="charContributionPointsHeader" type="number" oninput="app.updateField('contributionPoints', Number(this.value))" class="sheet-input w-14 text-center py-0.5 rounded text-xs font-bold text-emerald-200" />
+                    </div>
+                  </div>
+                  <div class="flex justify-end pt-1">
+                    <button onclick="app.openDeleteCharacterModal()" title="Excluir esta ficha permanentemente" class="w-full justify-center px-3 py-1.5 rounded-lg bg-crimson-900/60 hover:bg-crimson-600 text-crimson-200 hover:text-white border border-crimson-500/50 font-display font-bold text-xs flex items-center gap-1.5 shadow transition-all">
                       <i class="fa-solid fa-trash-can"></i> Excluir Esta Ficha
                     </button>
                   </div>
@@ -712,30 +720,50 @@
                   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-brass-400/20 pb-3 mb-4">
                     <div>
                       <h3 class="font-display font-bold text-base text-brass-200 flex items-center gap-2">
-                        <i class="fa-solid fa-box-open text-amber-400"></i> Artefatos Selados, Equipamentos & Itens
+                        <i class="fa-solid fa-box-open text-amber-400"></i> Artefatos Selados, Poções, Equipamentos & Itens
                       </h3>
-                      <p class="text-xs text-slate-400">Registre artefatos selados, amuletos, libras de ouro e pertences</p>
+                      <p class="text-xs text-slate-400">Registre poções que irá levar, artefatos selados, amuletos, dinheiro e pertences</p>
                     </div>
-                    <button onclick="app.addCollectionItem('equipment')" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-500/30 border border-brass-400/40 text-brass-200 text-xs font-bold flex items-center gap-1.5 transition-all">
-                      <i class="fa-solid fa-plus"></i> Novo Item / Artefato
-                    </button>
-                  </div>
-
-                  <div class="grid grid-cols-3 gap-3 mb-4 bg-obsidian-950/60 p-3 rounded-xl border border-slate-800">
-                    <div class="flex items-center justify-between px-2">
-                      <span class="text-xs text-amber-300 font-display"><i class="fa-solid fa-coins mr-1"></i> Libras de Ouro</span>
-                      <input id="currencyGold" type="number" oninput="app.updateField('currencyGold', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-amber-200" />
-                    </div>
-                    <div class="flex items-center justify-between px-2 border-x border-slate-800">
-                      <span class="text-xs text-slate-300 font-display"><i class="fa-solid fa-coins mr-1"></i> Soli (Prata)</span>
-                      <input id="currencySoli" type="number" oninput="app.updateField('currencySoli', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-slate-200" />
-                    </div>
-                    <div class="flex items-center justify-between px-2">
-                      <span class="text-xs text-amber-700 font-display"><i class="fa-solid fa-coins mr-1"></i> Pennies (Cobre)</span>
-                      <input id="currencyPenny" type="number" oninput="app.updateField('currencyPenny', Number(this.value))" class="sheet-input w-20 text-right px-2 py-1 rounded text-xs font-bold text-amber-500" />
+                    <div class="flex flex-wrap items-center gap-2">
+                      <button onclick="app.addPotionEquipmentItem()" class="px-3 py-1.5 rounded-lg bg-emerald-600/25 hover:bg-emerald-500 text-emerald-200 hover:text-obsidian-950 border border-emerald-400/40 text-xs font-bold flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-flask-vial"></i> + Poção p/ Levar
+                      </button>
+                      <button onclick="app.addCollectionItem('equipment')" class="px-3 py-1.5 rounded-lg bg-brass-500/20 hover:bg-brass-500/30 border border-brass-400/40 text-brass-200 text-xs font-bold flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-plus"></i> Novo Item / Artefato
+                      </button>
                     </div>
                   </div>
 
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 bg-obsidian-950/75 p-3 rounded-xl border border-brass-400/25">
+                    <div class="flex items-center justify-between gap-2 px-2 py-1 bg-obsidian-900/80 rounded-lg border border-amber-500/30">
+                      <span class="text-xs text-amber-300 font-display font-bold"><i class="fa-solid fa-coins mr-1"></i> Libras (£)</span>
+                      <div class="flex items-center gap-1">
+                        <button onclick="app.adjustCharacterCurrency('currencyGold', -5)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-[10px] font-bold">-5</button>
+                        <button onclick="app.adjustCharacterCurrency('currencyGold', -1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-[10px] font-bold">-1</button>
+                        <input id="currencyGold" type="number" oninput="app.updateField('currencyGold', Number(this.value))" class="sheet-input w-16 text-center px-1.5 py-1 rounded text-xs font-extrabold text-amber-200" />
+                        <button onclick="app.adjustCharacterCurrency('currencyGold', 1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-[10px] font-bold">+1</button>
+                        <button onclick="app.adjustCharacterCurrency('currencyGold', 5)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-[10px] font-bold">+5</button>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 px-2 py-1 bg-obsidian-900/80 rounded-lg border border-slate-700">
+                      <span class="text-xs text-slate-300 font-display font-bold"><i class="fa-solid fa-coins mr-1"></i> Soli (Prata)</span>
+                      <div class="flex items-center gap-1">
+                        <button onclick="app.adjustCharacterCurrency('currencySoli', -1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-[10px] font-bold">-1</button>
+                        <input id="currencySoli" type="number" oninput="app.updateField('currencySoli', Number(this.value))" class="sheet-input w-16 text-center px-1.5 py-1 rounded text-xs font-bold text-slate-200" />
+                        <button onclick="app.adjustCharacterCurrency('currencySoli', 1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-[10px] font-bold">+1</button>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 px-2 py-1 bg-obsidian-900/80 rounded-lg border border-amber-700/40">
+                      <span class="text-xs text-amber-500 font-display font-bold"><i class="fa-solid fa-coins mr-1"></i> Pennies</span>
+                      <div class="flex items-center gap-1">
+                        <button onclick="app.adjustCharacterCurrency('currencyPenny', -1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-crimson-950 text-crimson-300 border border-slate-700 text-[10px] font-bold">-1</button>
+                        <input id="currencyPenny" type="number" oninput="app.updateField('currencyPenny', Number(this.value))" class="sheet-input w-16 text-center px-1.5 py-1 rounded text-xs font-bold text-amber-400" />
+                        <button onclick="app.adjustCharacterCurrency('currencyPenny', 1)" class="px-1.5 py-0.5 rounded bg-obsidian-950 hover:bg-emerald-950 text-emerald-300 border border-slate-700 text-[10px] font-bold">+1</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="equipmentCategoryFilterBar" class="mb-3"></div>
                   <div id="equipmentListContainer" class="space-y-3"></div>
                 </div>
 
